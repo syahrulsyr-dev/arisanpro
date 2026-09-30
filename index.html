@@ -997,8 +997,7 @@ window.__AW_FINANCIAL_ENGINE__=(()=>{
     const list=Array.isArray(periods)?periods:[];
     const rawContext=context?.data&&typeof context.data==='object'?context.data:(context&&typeof context==='object'&&!Array.isArray(context)?context:null);
     const raw=(rawContext&&Array.isArray(rawContext.periods))?rawContext:(window.__v435LastData&&typeof window.__v435LastData==='object'?window.__v435LastData:{});
-    const settings=raw.settings&&typeof raw.settings==='object'?raw.settings:{};
-    const ordered=typeof window.__AW_EFFECTIVE_PERIODS__==='function'
+    const settings=raw.settings&&typeof raw.settings==='object'?raw.settings:{};    const ordered=typeof window.__AW_EFFECTIVE_PERIODS__==='function'
       ?window.__AW_EFFECTIVE_PERIODS__(list,settings)
       :(typeof window.__AW_ORDER_PERIODS__==='function'?window.__AW_ORDER_PERIODS__(list,settings):list.slice());
     const winners=Array.isArray(raw.winners)?raw.winners:[];
@@ -1997,8 +1996,7 @@ setTimeout(()=>{
   }
 
   // Run after React mount
-  setTimeout(fixAutofill, 800);
-  setTimeout(fixAutofill, 2000);
+  setTimeout(fixAutofill, 800);  setTimeout(fixAutofill, 2000);
   setTimeout(fixAutofill, 4000);
 
   // Inject CSS for autofill detection
@@ -2997,8 +2995,7 @@ create index if not exists idx_pemasukan_lain_tanggal on public.pemasukan_lain(t
     const close=()=>modal.remove();
     modal.querySelector('#aw-exp-x').onclick=close;
     modal.querySelector('#aw-exp-cancel').onclick=close;
-    modal.querySelector('#aw-exp-save').onclick=async()=>{
-      const tanggal=modal.querySelector('#ex-date').value,kategori=modal.querySelector('#ex-cat').value,keterangan=modal.querySelector('#ex-note').value.trim(),nominal=Number(modal.querySelector('#ex-amt').value);
+    modal.querySelector('#aw-exp-save').onclick=async()=>{      const tanggal=modal.querySelector('#ex-date').value,kategori=modal.querySelector('#ex-cat').value,keterangan=modal.querySelector('#ex-note').value.trim(),nominal=Number(modal.querySelector('#ex-amt').value);
       if(!tanggal||!kategori||!Number.isFinite(nominal)||nominal<=0){toast('Lengkapi tanggal, kategori, dan nominal.',false);return;}
       try{
         const b=modal.querySelector('#aw-exp-save');b.disabled=true;b.textContent='Menyimpan...';
@@ -3997,8 +3994,7 @@ end $$;
 alter table public.iuran_refund enable row level security;
 alter table public.iuran_kredit enable row level security;
 
-drop policy if exists aw_iuran_refund_select on public.iuran_refund;
-drop policy if exists aw_iuran_refund_insert on public.iuran_refund;
+drop policy if exists aw_iuran_refund_select on public.iuran_refund;drop policy if exists aw_iuran_refund_insert on public.iuran_refund;
 drop policy if exists aw_iuran_refund_update on public.iuran_refund;
 drop policy if exists aw_iuran_kredit_select on public.iuran_kredit;
 drop policy if exists aw_iuran_kredit_insert on public.iuran_kredit;
@@ -4997,8 +4993,7 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
     if(header.length!==4 || normalizeHeader(header[0])!=='nama' || normalizeHeader(header[1])!=='hp' || normalizeHeader(header[2])!=='alamat' || normalizeHeader(header[3])!=='rt') return [];
     const rows=[header];
     const re=/([^,]*),([^,]*),([^,]*),([^,\s]+)(?:\s+|$)/g;
-    let m; let consumed='';
-    while((m=re.exec(payload))){
+    let m; let consumed='';    while((m=re.exec(payload))){
       rows.push([m[1],m[2],m[3],m[4]]);
       consumed+=m[0];
     }
