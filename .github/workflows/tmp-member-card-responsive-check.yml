@@ -25,7 +25,7 @@ jobs:
           const { chromium }=require('playwright');
 
           const src=fs.readFileSync('index.html','utf8');
-          const styles=[...src.matchAll(/<style(?:\s[^>]*)?>([\\s\\S]*?)<\\/style>/gi)].map(m=>m[1]).join('\n');
+          const styles=src.split('<style').slice(1).map(x=>x.slice(x.indexOf('>')+1,x.indexOf('</style>'))).join('\n');
           if(!src.includes('id="aw-v121-member-cards-r2"')) throw new Error('R2 member-card CSS tidak ditemukan');
 
           const mock=`
