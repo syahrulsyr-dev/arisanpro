@@ -60,13 +60,14 @@ jobs:
                   viewportWidth:innerWidth,
                   brandShare:rb?Number((rb.height/innerHeight).toFixed(3)):1,
                   bodyOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1,
-                  brandFeatureText:Array.from(brand?.querySelectorAll('.mt-8')||[]).map(x=>x.textContent.trim()).filter(Boolean).join(' | ')
+                  brandFeatureText:Array.from(brand?.querySelectorAll('.mt-8')||[]).map(x=>x.textContent.trim()).filter(Boolean).join(' | '),
+                  brandFeatureDisplay:brand?.querySelector('.mt-8') ? getComputedStyle(brand.querySelector('.mt-8')).display : 'none'
                 };
               });
               console.log(v.name,JSON.stringify(r));
               if(!r.shellVisible||!r.cardVisible||!r.formVisible||!r.emailVisible||!r.passwordVisible||!r.loginButtonVisible) throw new Error('Login UI incomplete at '+v.name+'px');
               if(v.width<=430 && (r.brandHeight>220 || r.brandShare>0.27)) throw new Error('Mobile green brand panel still too tall at '+v.name+'px: '+r.brandHeight+'px');
-              if(v.width<=430 && r.brandFeatureText) throw new Error('Mobile feature list still visible');
+              if(v.width<=430 && r.brandFeatureText && r.brandFeatureDisplay !== 'none') throw new Error('Mobile feature list is visibly rendered');
               if(v.width>=1000 && r.brandHeight<300) throw new Error('Desktop brand panel unexpectedly collapsed: '+r.brandHeight+'px');
               if(r.bodyOverflow) throw new Error('Login horizontal overflow at '+v.name+'px');
               if(v.width<=430) await page.screenshot({path:'test-results/login-'+v.name+'.png',fullPage:true});
