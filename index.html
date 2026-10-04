@@ -1057,7 +1057,10 @@ window.__AW_FINANCIAL_ENGINE__=(()=>{
     const normalizedStored=v=>String(v??'').trim().toLowerCase();
     const winnerState=period=>{
       const pid=id(period?.id);
-      const ws=winners.filter(w=>id(w?.periode_id??w?.period_id)===pid);
+      const ws=winners.filter(w=>{
+        const wid=w?.periode_id??w?.period_id??w?.periodId;
+        return id(wid)===pid||periodEquivalent(wid,pid,ordered);
+      });
       const targetCount=typeof window.__AW_PERIOD_WINNER_TARGET__==='function'?window.__AW_PERIOD_WINNER_TARGET__(period,ordered,settings):1;
       if(!ws.length)return {drawn:false,allPaid:false,winnerCount:0,targetCount,targetReached:false};
       const paidBy=new Map(winnerPayments.map(x=>[id(x?.pemenang_id??x?.winner_id),Math.max(num(x?.nominal),0)]));
@@ -1328,7 +1331,10 @@ window.__AW_FINANCIAL_ENGINE__=(()=>{
   const availableRefund=(member,period,data={})=>{const iurans=Array.isArray(data.iurans)?data.iurans:[],refunds=Array.isArray(data.refunds)?data.refunds:[],credits=Array.isArray(data.credits)?data.credits:[];const paid=iurans.filter(x=>id(memberId(x))===id(member)&&id(periodId(x))===id(period)&&!invalidStatuses.has(status(x?.status))).reduce((s,x)=>s+paymentNom(x),0);const due=periodNom({periodId:period},data.periods||[],data.settings||{});const used=credits.filter(x=>!invalidStatuses.has(status(x?.status))&&id(x?.anggota_id??x?.member_id??x?.memberId)===id(member)&&id(x?.periode_tujuan_id??x?.target_period_id??x?.periode_id)===id(period)).reduce((s,x)=>s+Math.max(num(x?.nominal_digunakan??x?.applied_nominal??x?.digunakan??0),0),0);const refunded=refunds.filter(x=>!invalidStatuses.has(status(x?.status))&&id(x?.anggota_id??x?.member_id??x?.memberId)===id(member)&&id(x?.periode_id??x?.periodId)===id(period)).reduce((s,x)=>s+Math.max(num(x?.nominal),0),0);return Math.max(paid-due-used-refunded,0)};
   const winnerPaymentStatus=(period,winners=[],winnerPayments=[],periods=[],settings={})=>{
     const pid=id(period?.id??period);
-    const ws=(Array.isArray(winners)?winners:[]).filter(w=>id(w?.periode_id??w?.periodId)===pid);
+    const ws=(Array.isArray(winners)?winners:[]).filter(w=>{
+      const wid=w?.periode_id??w?.periodId??w?.period_id;
+      return id(wid)===pid||periodEquivalent(wid,pid,periods);
+    });
     const ps=Array.isArray(winnerPayments)?winnerPayments:[];
     const paidBy=new Map(ps.map(x=>[id(x?.pemenang_id??x?.winner_id),Math.max(num(x?.nominal),0)]));
     const paid=ws.filter(w=>paidBy.get(id(w?.id))>=Math.max(num(w?.nominal_dapat??w?.nominal),0)&&Math.max(num(w?.nominal_dapat??w?.nominal),0)>0);
@@ -1344,7 +1350,7 @@ window.__AW_FINANCIAL_ENGINE__=(()=>{
     const ws=winnerPaymentStatus(p,data.winners||[],data.winnerPayments||[],periods,settings);
     const stored=status(p.status),current=resolveCurrentPeriod(periods,new Date(),data);
     const ordered=typeof window.__AW_EFFECTIVE_PERIODS__==='function'?window.__AW_EFFECTIVE_PERIODS__(periods,settings):(typeof window.__AW_ORDER_PERIODS__==='function'?window.__AW_ORDER_PERIODS__(periods,settings):periods);
-    const pIdx=ordered.findIndex(x=>id(x?.id)===id(p?.id)),cIdx=current?ordered.findIndex(x=>id(x?.id)===id(current?.id)):-1;
+    const pIdx=ordered.findIndex(x=>id(x?.id)===id(p?.id)||periodEquivalent(x?.id,p?.id,ordered)),cIdx=current?ordered.findIndex(x=>id(x?.id)===id(current?.id)||periodEquivalent(x?.id,current?.id,ordered)):-1;
     // V22.5.96: stored status is never sufficient to declare completion.
     // Lifecycle completion must be proven by the canonical current-period
     // resolver (all member obligations settled + winner slot reached + winner
