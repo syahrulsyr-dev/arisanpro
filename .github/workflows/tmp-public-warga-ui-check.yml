@@ -1,0 +1,95 @@
+name: tmp-public-warga-ui-check
+
+on:
+  push:
+    branches:
+      - fix/public-warga-responsive-canonical-r2
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  public-warga-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --no-save playwright@1.55.0
+      - run: npx playwright install --with-deps chromium
+      - name: Public warga responsive assertions
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const { chromium }=require('playwright');
+          const src=fs.readFileSync('index.html','utf8');
+          if(!src.includes('aw-v121-public-canonical-r2')) throw new Error('Public canonical R2 CSS tidak ditemukan');
+          if(!src.includes('id="aw-v121-public-live-canonical"')) throw new Error('Public canonical script tidak ditemukan');
+          const styles=src.split('<style').slice(1).map(x=>x.slice(x.indexOf('>')+1,x.indexOf('</style>'))).join('\n');
+
+          const shell=`
+          <div class="min-h-screen">
+            <div class="max-w-5xl">
+              <div class="bg-white">
+                <div class="bg-gradient-to-br"><div class="relative"><h1>Arisan Warga</h1></div></div>
+                <div class="grid grid-cols-2 md:grid-cols-4"><div>A</div><div>B</div><div>C</div><div>D</div></div>
+                <div class="p-6 grid md:grid-cols-2">
+                  <section id="aw-public-finance"><div class="bg-white">Finance</div></section>
+                  <section id="legacy-winners"><h3>Pemenang Terbaru & Riwayat</h3><div>legacy</div></section>
+                </div>
+              </div>
+            </div>
+            <div id="legacy-live" class="aw-v436-draw-overlay"><div>legacy draw</div></div>
+            <div id="legacy-live-437" class="aw-v437-ready"><div>legacy ceremony</div></div>
+            <div id="aw-public-live-draw"><div>legacy small overlay</div></div>
+          </div>`;
+
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            for(const width of [390,430,768,1024,1440]){
+              const page=await browser.newPage({viewport:{width,height:900}});
+              await page.setContent(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${styles}</style></head><body class="aw-public-live"><div id="root">${shell}</div></body></html>`);
+              await page.evaluate(()=>{
+                const finance=document.querySelector('#aw-public-finance');
+                const sec=document.createElement('section');
+                sec.id='aw-v121-public-winners-canonical';
+                sec.className='aw-v121-public-winners-canonical';
+                sec.innerHTML='<div class="card"><div class="head"><div class="eyebrow">Pemenang Terbaru & Riwayat</div><div class="source">Sumber: Supabase • read-only</div></div><div class="latest"><div><div class="name">Budi Santoso</div><div class="meta">Periode Oktober 2026 • 03 Okt 2026</div></div><div class="amount">Rp200.000</div></div><div class="hist"><div class="row"><div><div class="name">Pemenang terbaru • Budi Santoso</div><div class="meta">Periode Oktober 2026 • 03 Okt 2026 • Belum dibayar</div></div><div class="amount">Rp200.000</div></div></div></div>';
+                finance.parentNode.insertBefore(sec,finance.nextSibling);
+              });
+              const out=await page.evaluate(()=>{
+                const canonical=document.querySelector('#aw-v121-public-winners-canonical');
+                const legacyWinner=document.querySelector('#legacy-winners');
+                const oldLive=document.querySelector('#legacy-live');
+                const old437=document.querySelector('#legacy-live-437');
+                const oldSmall=document.querySelector('#aw-public-live-draw');
+                const root=document.querySelector('#root');
+                const stats=[...document.querySelectorAll('[class*="grid-cols-2"][class*="md:grid-cols-4"]>div')];
+                return {
+                  canonical:!!canonical,
+                  canonicalWidth:canonical?.getBoundingClientRect().width||0,
+                  legacyWinnerDisplay:getComputedStyle(legacyWinner).display,
+                  legacyLiveDisplay:getComputedStyle(oldLive).display,
+                  legacy437Display:getComputedStyle(old437).display,
+                  smallOverlayDisplay:getComputedStyle(oldSmall).display,
+                  existsSmall:!!oldSmall,
+                  rootScroll:Math.max(document.documentElement.scrollWidth,document.body.scrollWidth)-document.documentElement.clientWidth,
+                  canonicalOverflow:canonical?canonical.scrollWidth-canonical.clientWidth:9999,
+                  statsWidths:stats.map(x=>x.getBoundingClientRect().width),
+                  contentCols:getComputedStyle(root.querySelector('.p-6.grid.md\\:grid-cols-2')).gridTemplateColumns
+                };
+              });
+              console.log(width,out);
+              if(!out.canonical) throw new Error('canonical winners missing @ '+width);
+              if(out.legacyWinnerDisplay!=='none') throw new Error('legacy winners visible @ '+width);
+              if(out.legacyLiveDisplay!=='none') throw new Error('legacy V436 visible @ '+width);
+              if(out.legacy437Display!=='none') throw new Error('legacy V437 visible @ '+width);
+              if(out.smallOverlayDisplay!=='none' || out.existsSmall) throw new Error('legacy small overlay visible/existing @ '+width);
+              if(out.rootScroll>0 || out.canonicalOverflow>0) throw new Error('horizontal overflow @ '+width);
+              if(out.canonicalWidth<=0) throw new Error('canonical winners width zero @ '+width);
+              if(width<768 && stats.length!==4) throw new Error('stats not rendered @ '+width);
+            }
+            await browser.close();
+          })();
+          NODE
