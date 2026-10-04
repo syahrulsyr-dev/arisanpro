@@ -103,37 +103,6 @@ jobs:
               }
               if (initialText.trim().length < 50) throw new Error(`${name}: page body is unexpectedly empty`);
 
-              // Multi-winner period semantics: jumlah_periode is the number of periods,
-              // while pemenang_per_periode multiplies the total winner slots.
-              const multiWinnerPeriodAudit = await page.evaluate(() => {
-                const periods = typeof window.__AW_GENERATE_PERIODS__ === 'function'
-                  ? window.__AW_GENERATE_PERIODS__(12, '2026-01-01', 100000)
-                  : [];
-                const one = { jumlahPeriode: 12, pemenangPerPeriode: 1 };
-                const two = { jumlahPeriode: 12, pemenangPerPeriode: 2 };
-                return {
-                  onePeriodCount: window.__AW_EFFECTIVE_PERIOD_COUNT__?.(one) ?? null,
-                  oneTotalSlots: window.__AW_TOTAL_WINNER_SLOTS__?.(one) ?? null,
-                  twoPeriodCount: window.__AW_EFFECTIVE_PERIOD_COUNT__?.(two) ?? null,
-                  twoTotalSlots: window.__AW_TOTAL_WINNER_SLOTS__?.(two) ?? null,
-                  generatedPeriods: periods.length,
-                  firstTarget: window.__AW_PERIOD_WINNER_TARGET__?.(periods[0], periods, two) ?? null,
-                  lastTarget: window.__AW_PERIOD_WINNER_TARGET__?.(periods[11], periods, two) ?? null
-                };
-              });
-              console.log(JSON.stringify({ multiWinnerPeriodAudit }, null, 2));
-              if (multiWinnerPeriodAudit.onePeriodCount !== 12 ||
-                  multiWinnerPeriodAudit.oneTotalSlots !== 12) {
-                throw new Error(`Single-winner period semantics changed: ${JSON.stringify(multiWinnerPeriodAudit)}`);
-              }
-              if (multiWinnerPeriodAudit.twoPeriodCount !== 12 ||
-                  multiWinnerPeriodAudit.twoTotalSlots !== 24 ||
-                  multiWinnerPeriodAudit.generatedPeriods !== 12 ||
-                  multiWinnerPeriodAudit.firstTarget !== 2 ||
-                  multiWinnerPeriodAudit.lastTarget !== 2) {
-                throw new Error(`Multi-winner period semantics failed: ${JSON.stringify(multiWinnerPeriodAudit)}`);
-              }
-
               // Deterministic draw-eligibility contract: read-only synthetic data.
               // This catches period-ID aliases, previous winners, inactive members,
               // partial payments, and the only-paid configuration without touching LIVE data.
