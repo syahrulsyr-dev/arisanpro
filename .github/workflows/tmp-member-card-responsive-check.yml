@@ -26,7 +26,7 @@ jobs:
 
           const src=fs.readFileSync('index.html','utf8');
           const styles=[...src.matchAll(/<style(?:\s[^>]*)?>([\\s\\S]*?)<\\/style>/gi)].map(m=>m[1]).join('\n');
-          if(!styles.includes('aw-v121-member-cards-r2')) throw new Error('R2 member-card CSS tidak ditemukan');
+          if(!src.includes('id="aw-v121-member-cards-r2"')) throw new Error('R2 member-card CSS tidak ditemukan');
 
           const mock=`
           <main id="root">
