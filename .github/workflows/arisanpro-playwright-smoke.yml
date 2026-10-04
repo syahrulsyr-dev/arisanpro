@@ -114,12 +114,18 @@ jobs:
               } catch {
                 // Continue to capture diagnostics and screenshot before marking the readiness check failed.
               }
+              // Allow the mobile winner loader/realtime refresh to finish rendering.
+              await page.waitForTimeout(2500);
 
               const publicText = await page.locator('body').innerText().catch(() => '');
               const loginHeadingVisible = await page.getByRole('heading', {
                 name: /Masuk sebagai Pengelola/i
               }).isVisible().catch(() => false);
               const financeSectionVisible = await page.locator('#aw-public-finance').count() > 0;
+              const canonicalWinnerSectionCount = await page.locator('#aw-v121-public-winners-canonical').count();
+              const legacyWinnerHeadingVisible = await page.locator('#root h3')
+                .filter({ hasText: /Pemenang Terbaru\\s*&\\s*Riwayat/i })
+                .first().isVisible().catch(() => false);
               const financeUnavailable = /Data Keuangan Belum Tersedia/i.test(publicText);
               const stillLoading = /Memuat data warga/i.test(publicText);
               const nanMatches = publicText.match(/\\bNaN\\b|Rp\\s*NaN/gi) || [];
@@ -149,6 +155,8 @@ jobs:
                 publicTextPreview: publicText.slice(0, 1000),
                 loginHeadingVisibleAfterPublicRoute: loginHeadingVisible,
                 financeSectionVisible,
+                canonicalWinnerSectionCount,
+                legacyWinnerHeadingVisible,
                 financeUnavailable,
                 stillLoading,
                 visibleNaN,
@@ -163,6 +171,12 @@ jobs:
               }
               if (!financeSectionVisible) {
                 throw new Error(`${name}: canonical public finance snapshot did not render (financeUnavailable=${financeUnavailable}, stillLoading=${stillLoading})`);
+              }
+              if (name === 'mobile' && canonicalWinnerSectionCount !== 1) {
+                throw new Error('Mobile canonical Supabase winner section did not render.');
+              }
+              if (name === 'mobile' && legacyWinnerHeadingVisible) {
+                throw new Error('Mobile still displays the duplicate legacy winner-history panel.');
               }
               await context.close();
             }
