@@ -3193,14 +3193,8 @@ grant execute on function public.bayar_pemenang(text,date) to authenticated;
     if(r.error)throw r.error;
     return {winners:p.data||[],payments:r.data||[]};
   }
-  function showSql(){
-    const box=document.createElement('div');box.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;padding:16px';
-    box.innerHTML='<div style="width:min(900px,100%);max-height:90vh;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 25px 70px rgba(0,0,0,.25);font-family:system-ui"><div style="padding:16px 18px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center"><b>SQL Pembayaran Pemenang</b><button data-x style="border:0;background:#f1f5f9;border-radius:50%;width:32px;height:32px">×</button></div><div style="padding:16px;overflow:auto;max-height:65vh;background:#0f172a;color:#a7f3d0;font:12px/1.55 ui-monospace,monospace;white-space:pre-wrap"></div><div style="padding:14px 18px;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end"><button data-copy style="height:38px;padding:0 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-weight:700">Copy SQL</button><button data-x style="height:38px;padding:0 14px;border:0;border-radius:10px;background:#0f172a;color:#fff;font-weight:700">Tutup</button></div></div>';
-    box.querySelector('div div:nth-child(2)').textContent=SQL;
-    box.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>box.remove());
-    box.querySelector('[data-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(SQL);alert('SQL berhasil disalin. Jalankan di Supabase SQL Editor, lalu kembali ke aplikasi.')}catch{prompt('Salin SQL berikut:',SQL)}};
-    document.body.appendChild(box);
-  }
+  // Legacy SQL modal intentionally removed from the UI.
+  // Database preparation is handled by the dedicated schema flow, not by the winner-payment panel.
   function toast(msg,ok=true){let old=document.getElementById('aw-pay-toast');if(old)old.remove();let d=document.createElement('div');d.id='aw-pay-toast';d.textContent=msg;d.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%)!important;z-index:100001;background:'+(ok?'#0f172a':'#991b1b')+';color:#fff;padding:12px 18px;border-radius:999px;font:700 12px system-ui;box-shadow:0 10px 30px rgba(0,0,0,.18)';document.body.appendChild(d);setTimeout(()=>d.remove(),4200)}
   function keyOf(w){return [w.periode_id||w.periodId||'',w.anggota_id||w.memberId||'',w.id||''].join('|')}
   function calendarNextOf(period){
@@ -3469,7 +3463,7 @@ grant execute on function public.bayar_pemenang(text,date) to authenticated;
       }catch(e){
         if(e.message==='RPC_TIMEOUT'){toast('Pembayaran belum terkonfirmasi. Koneksi/RPC berhenti merespons, jadi tidak dianggap berhasil. Silakan cek data sebelum mencoba lagi.',false);}
         else if(e.message==='RPC_NOT_READY'){
-          if(confirm('Database belum memiliki modul Pembayaran Pemenang. Buka SQL Schema untuk disiapkan sekarang?'))showSql();
+          alert('Database belum memiliki modul Pembayaran Pemenang. Jalankan modul SQL Schema dari menu pengaturan database, lalu ulangi pembayaran.');
         }else toast('Gagal mencatat pembayaran: '+String(e?.message||e).slice(0,220),false);
         b.disabled=false;b.textContent=paid?'✓ Sudah Dibayar':'💸 Bayar Pemenang';
       }
