@@ -6806,53 +6806,23 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
     }
     return window.__supaClient||null;
   }
-  async function clearLiveDrawAfterReset(c,id,reason='winner-reset'){
+  async function verifyLiveDrawAfterReset(c,id){
     const wanted=String(id||'');
-    for(let attempt=1;attempt<=3;attempt++){
-      try{
-        const q=await c.from('undian_live')
-          .select('id,status,winner_id,winner_nama')
-          .eq('id','live-1')
-          .maybeSingle();
-        if(q.error)throw q.error;
-        const live=q.data||null;
-        if(!live)return true;
-
-        // Never interrupt an unrelated draw. Only clear a live overlay that
-        // still points to the winner just removed by this reset operation.
-        if(String(live.winner_id??'')!==wanted)return true;
-
-        const u=await c.from('undian_live').update({
-          status:'idle',
-          current_name:'',
-          current_index:null,
-          winner_id:null,
-          winner_nama:null,
-          periode_id:'',
-          periode_nama:'',
-          updated_at:new Date().toISOString()
-        }).eq('id','live-1').select('id,status,winner_id').maybeSingle();
-
-        if(u.error)throw u.error;
-
-        const verify=await c.from('undian_live')
-          .select('id,status,winner_id')
-          .eq('id','live-1')
-          .maybeSingle();
-
-        if(!verify.error && (!verify.data || (
-          String(verify.data.status||'')==='idle' &&
-          !verify.data.winner_id
-        ))){
-          console.log('✅ V121 live draw cleared after reset:',reason);
-          return true;
-        }
-      }catch(e){
-        console.warn('⚠️ V121 live draw clear retry',reason,attempt,e?.message||e);
-      }
-      await new Promise(resolve=>setTimeout(resolve,150*attempt));
+    try{
+      const q=await c.from('undian_live')
+        .select('id,status,winner_id,winner_nama')
+        .eq('id','live-1')
+        .maybeSingle();
+      if(q.error)throw q.error;
+      const live=q.data||null;
+      if(!live)return true;
+      // reset_pemenang is atomic on current LIVE. This client must never
+      // mutate undian_live directly; only verify the canonical DB result.
+      return String(live.winner_id??'')!==wanted || String(live.status||'')==='idle';
+    }catch(e){
+      console.warn('⚠️ V121 live draw verification after reset:',e?.message||e);
+      return false;
     }
-    return false;
   }
 
   async function rpcResetOne(id){
@@ -6863,13 +6833,12 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
     if(r?.error)throw r.error;
     const result=r?.data||{};
 
-    // New DB RPC clears undian_live atomically. Older LIVE RPCs don't expose
-    // live_cleared, so verify and self-heal only if the live row still points
-    // to this exact winner.
+    // Current LIVE RPC clears undian_live atomically. Never duplicate that
+    // mutation from the browser; verify only when the RPC does not report it.
     if(result?.live_cleared!==true){
-      const cleared=await clearLiveDrawAfterReset(c,id,'rpc-reset-fallback');
-      if(!cleared){
-        throw new Error('Winner berhasil direset, tetapi state undian publik belum berhasil dibersihkan. Silakan coba refresh Link Warga.');
+      const verified=await verifyLiveDrawAfterReset(c,id);
+      if(!verified){
+        throw new Error('Winner berhasil direset, tetapi state undian publik belum terverifikasi bersih. Silakan refresh Link Warga.');
       }
     }
     return result;
@@ -6973,8 +6942,10 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
   }
 
   function scan(){
-    if(!isMobile()||!isAdmin())return;
-    setupModalClasses();setupIuran(page('iuran'));setupMembers(page('anggota'));setupReports(page('laporan'));setupFinance();
+    if(!isAdmin())return;
+    setupFinance();
+    if(!isMobile())return;
+    setupModalClasses();setupIuran(page('iuran'));setupMembers(page('anggota'));setupReports(page('laporan'));
   }
   let timer=0;const schedule=()=>{clearTimeout(timer);timer=setTimeout(scan,40)};
   const observer=new MutationObserver(schedule);observer.observe(document.getElementById('root')||document.body,{childList:true,subtree:true});
