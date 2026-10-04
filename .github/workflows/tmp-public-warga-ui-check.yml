@@ -54,14 +54,20 @@ jobs:
               const page=await browser.newPage({viewport:{width,height:900}});
               await page.setContent(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${styles}</style></head><body class="aw-public-live"><div id="root">${shell}</div></body></html>`);
               await page.evaluate(()=>{
-                const makeQuery=(data)=>{const p=Promise.resolve(data);p.select=()=>p;p.order=()=>p;return p};
+                const makeQuery=(data)=>{const p=Promise.resolve(data);p.select=()=>p;p.order=()=>p;p.eq=()=>p;return p};
                 const payload={
                   pemenang:{data:[{id:'w2',anggota_id:'m2',periode_id:'p2',tanggal_undi:'2026-10-03',nominal:200000},{id:'w1',anggota_id:'m1',periode_id:'p1',tanggal_undi:'2026-09-03',nominal:200000}]},
                   anggota:{data:[{id:'m1',nama:'Budi Santoso',rt:'01',color:'#059669'},{id:'m2',nama:'Siti Aminah',rt:'02',color:'#0f766e'}]},
                   periode:{data:[{id:'p1',nama:'Periode September 2026',bulan:9,tahun:2026},{id:'p2',nama:'Periode Oktober 2026',bulan:10,tahun:2026}]},
-                  pembayaran_pemenang:{data:[{pemenang_id:'w1',nominal:200000,tanggal_bayar:'2026-09-04'}]}
+                  pembayaran_pemenang:{data:[{pemenang_id:'w1',nominal:200000,tanggal_bayar:'2026-09-04'}]},
+                  undian_live:{data:{id:'live-1',status:'winner',current_name:'Siti Aminah',winner_id:'m2',winner_nama:'Siti Aminah',periode_id:'p2',periode_nama:'Periode Oktober 2026',updated_at:'2026-10-04T03:05:00Z'}}
                 };
-                window.__supaClient={from:(table)=>makeQuery(payload[table]||{data:[],error:null}),channel:()=>({on(){return this},subscribe(){return this}})};
+                window.__supaClient={
+                  from:(table)=>table==='undian_live'
+                    ?{select(){return {eq(){return {maybeSingle:()=>Promise.resolve(payload.undian_live)}}}}}
+                    :makeQuery(payload[table]||{data:[],error:null}),
+                  channel:()=>({on(){return this},subscribe(){return this}})
+                };
                 const el=document.createElement('script');
                 el.textContent="";
               });
@@ -88,6 +94,8 @@ jobs:
                   existsSmall:!!oldSmall,
                   rootScroll:Math.max(document.documentElement.scrollWidth,document.body.scrollWidth)-document.documentElement.clientWidth,
                   canonicalOverflow:canonical?canonical.scrollWidth-canonical.clientWidth:9999,
+                  liveStage:!!document.querySelector('#aw-v121-public-live-stage'),
+                  liveStageWidth:document.querySelector('#aw-v121-public-live-stage .panel')?.getBoundingClientRect().width||0,
                   statsCount:stats.length,
                   statsWidths:stats.map(x=>x.getBoundingClientRect().width),
                   contentCols:getComputedStyle(root.querySelector('.p-6.grid.md\\:grid-cols-2')).gridTemplateColumns
@@ -101,7 +109,12 @@ jobs:
               if(out.smallOverlayDisplay!=='removed' || out.existsSmall) throw new Error('legacy small overlay visible/existing @ '+width);
               if(out.rootScroll>0 || out.canonicalOverflow>0) throw new Error('horizontal overflow @ '+width);
               if(out.canonicalWidth<=0) throw new Error('canonical winners width zero @ '+width);
+              if(out.liveStage!==true) throw new Error('canonical live stage missing @ '+width);
+              if(out.liveStageWidth<=0 || out.liveStageWidth>width-16) throw new Error('live stage too wide @ '+width+': '+out.liveStageWidth);
               if(width<768 && out.statsCount!==4) throw new Error('stats not rendered @ '+width);
+              await page.locator('#aw-v121-public-live-stage button').click();
+              await page.waitForTimeout(750);
+              if(await page.locator('#aw-v121-public-live-stage').count()!==0) throw new Error('live stage reopened after close/polling @ '+width);
             }
             await browser.close();
           })();
