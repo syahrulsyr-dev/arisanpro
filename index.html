@@ -6947,7 +6947,7 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
         latest.parentNode?.insertBefore(tabs,latest);
         tabs.addEventListener('click',ev=>{const b=ev.target.closest('.aw-v121-report-tab');if(!b)return;window.__AW_V121_REPORT_MODE__=b.dataset.mode;apply();});
       }
-      const apply=()=>{const mode=window.__AW_V121_REPORT_MODE__==='detail'?'detail':'latest';latest.hidden=mode!=='latest';detail.hidden=mode!=='detail';tabs.querySelectorAll('.aw-v121-report-tab').forEach(b=>b.classList.toggle('is-active',b.dataset.mode===mode));};
+      const apply=()=>{const mode=window.__AW_V121_REPORT_MODE__==='detail'?'detail':'latest';const y=window.scrollY;latest.hidden=mode!=='latest';detail.hidden=mode!=='detail';tabs.querySelectorAll('.aw-v121-report-tab').forEach(b=>b.classList.toggle('is-active',b.dataset.mode===mode));requestAnimationFrame(()=>{if(Math.abs(window.scrollY-y)>2)window.scrollTo({top:y,left:0,behavior:'auto'});});};
       apply();
     }
   }
