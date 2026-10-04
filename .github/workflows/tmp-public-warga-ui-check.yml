@@ -66,6 +66,7 @@ jobs:
                 code=code.replace(/const isPublic=.*?;\\n/,'const isPublic=()=>true;\\n');
                 const el=document.createElement('script');el.textContent=code;document.body.appendChild(el);
               }, publicScript.replace(/<script[^>]*>|<\\/script>/g,''));
+              await page.waitForTimeout(800);
               const out=await page.evaluate(()=>{
                 const canonical=document.querySelector('#aw-v121-public-winners-canonical');
                 const legacyWinner=document.querySelector('#legacy-winners');
