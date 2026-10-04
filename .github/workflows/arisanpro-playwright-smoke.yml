@@ -1,0 +1,96 @@
+name: ArisanPro Playwright Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test/playwright-smoke-v10
+    paths:
+      - .github/workflows/arisanpro-playwright-smoke.yml
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Open deployed app and capture desktop/mobile screenshots
+        run: |
+          mkdir -p test-results
+          cat > smoke-test.cjs <<'NODE'
+          const { chromium } = require('playwright');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const errors = [];
+            const target = 'https://syahrulsyr-dev.github.io/arisanpro/';
+
+            async function inspect(name, viewport) {
+              const context = await browser.newContext({ viewport });
+              const page = await context.newPage();
+              page.on('pageerror', error => errors.push({ type: 'pageerror', viewport: name, message: error.message }));
+              page.on('console', message => {
+                if (message.type() === 'error') {
+                  errors.push({ type: 'console-error', viewport: name, message: message.text() });
+                }
+              });
+              const response = await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 60000 });
+              await page.waitForTimeout(8000);
+              const title = await page.title();
+              const bodyText = await page.locator('body').innerText().catch(() => '');
+              await page.screenshot({ path: `test-results/${name}.png`, fullPage: true, animations: 'disabled' });
+              const result = {
+                viewport: name,
+                url: page.url(),
+                status: response ? response.status() : null,
+                title,
+                bodyTextLength: bodyText.length,
+                bodyTextPreview: bodyText.slice(0, 800)
+              };
+              console.log(JSON.stringify(result, null, 2));
+              if (!response || !response.ok()) throw new Error(`${name}: HTTP response is not OK`);
+              if (!/ArisanPro/i.test(title) && !/ArisanPro/i.test(bodyText)) {
+                throw new Error(`${name}: page does not appear to be ArisanPro`);
+              }
+              if (bodyText.trim().length < 50) throw new Error(`${name}: page body is unexpectedly empty`);
+              await context.close();
+            }
+
+            try {
+              await inspect('desktop', { width: 1440, height: 1000 });
+              await inspect('mobile', { width: 390, height: 844 });
+            } finally {
+              require('fs').writeFileSync('test-results/browser-errors.json', JSON.stringify(errors, null, 2));
+              await browser.close();
+            }
+            console.log('Smoke test completed. Browser errors were recorded for review.');
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+          node smoke-test.cjs
+
+      - name: Upload screenshots and browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arisanpro-playwright-smoke-results
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7
