@@ -3836,15 +3836,39 @@ async function loadCanonicalFinanceSnapshot(){
       return [];
     }
   }
-  let iuran,periods,members,winners;
-  try{
-    [iuran,periods,members,winners]=await Promise.all([
-      getAll('iuran'),getAll('periode'),getAll('anggota'),getAll('pemenang')
-    ]);
-  }catch(e){
-    const msg=String(e?.message||e||'Public core dataset gagal dibaca');
-    throw new Error('Data inti public gagal dibaca: '+msg);
+  const coreTables=['anggota','periode','iuran','pemenang'];
+
+  /*
+   * V22.5.97 PUBLIC CORE DIAGNOSTIC:
+   * Jangan menyamarkan tabel inti mana yang gagal. Promise.allSettled()
+   * mempertahankan perilaku fail-closed untuk dataset inti, tetapi memberi
+   * nama tabel + code + message agar RLS/network issue langsung teridentifikasi.
+   */
+  const coreSettled=await Promise.allSettled(coreTables.map(table=>getAll(table)));
+  const coreErrors=coreSettled.map((r,i)=>r.status==='rejected'?{
+    table:coreTables[i],
+    code:String(r.reason?.code||''),
+    message:String(r.reason?.message||r.reason||'Unknown error')
+  }:null).filter(Boolean);
+
+  window.__AW_PUBLIC_CORE_DIAGNOSTIC__={
+    at:new Date().toISOString(),
+    ok:coreErrors.length===0,
+    tables:coreTables.map((table,i)=>{
+      const r=coreSettled[i];
+      return r.status==='fulfilled'
+        ?{table,status:'PASS',rows:Array.isArray(r.value)?r.value.length:0}
+        :{table,status:'FAIL',code:String(r.reason?.code||''),message:String(r.reason?.message||r.reason||'Unknown error')};
+    })
+  };
+
+  if(coreErrors.length){
+    const detail=coreErrors.map(x=>`${x.table}: ${x.code?x.code+' — ':''}${x.message}`).join(' | ');
+    console.warn('❌ V22.5.97 PUBLIC CORE TABLE FAILURE',window.__AW_PUBLIC_CORE_DIAGNOSTIC__);
+    throw new Error('Data inti public gagal dibaca: '+detail);
   }
+
+  const [members,periods,iuran,winners]=coreSettled.map(r=>r.value);
 
   const [extra,expenses,winnerPayments,settingsRows,refunds,credits]=await Promise.all([
     optionalPublicTable('pemasukan_lain'),
@@ -3881,6 +3905,26 @@ async function loadCanonicalFinanceSnapshot(){
     winners,winnerPayments,settings,refunds,credits
   };
 }
+
+window.__AW_PUBLIC_CORE_TABLE_DIAGNOSTIC__=async function(){
+  const tables=['anggota','periode','iuran','pemenang'];
+  const results=await Promise.all(tables.map(async table=>{
+    const started=performance.now();
+    try{
+      const data=await getAll(table,'id');
+      return {table,status:'PASS',rows:Array.isArray(data)?data.length:0,ms:Math.round(performance.now()-started)};
+    }catch(e){
+      return {table,status:'FAIL',code:String(e?.code||''),message:String(e?.message||e||'Unknown error'),ms:Math.round(performance.now()-started)};
+    }
+  }));
+  window.__AW_PUBLIC_CORE_DIAGNOSTIC__={
+    at:new Date().toISOString(),
+    ok:results.every(x=>x.status==='PASS'),
+    tables:results
+  };
+  console.table(results);
+  return window.__AW_PUBLIC_CORE_DIAGNOSTIC__;
+};
 
 window.__AW_LOAD_CANONICAL_FINANCE_SNAPSHOT__=loadCanonicalFinanceSnapshot;
 window.__AW_CANONICAL_PUBLIC_ADMIN_DATA_V22583__=true;
