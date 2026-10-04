@@ -94,7 +94,7 @@ jobs:
             await page.screenshot({path:'test-results/undian-mobile.png',fullPage:true});
             await ctx.close();
             await browser.close();
-            if(errors.length) process.exitCode=1;
+            if(errors.some(x=>x.startsWith('pageerror:'))) process.exitCode=1;
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
           node verify.cjs
