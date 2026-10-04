@@ -129,7 +129,7 @@ jobs:
                 return !!finance && !!winners && finance.parentElement === winners.parentElement && finance.nextElementSibling === winners;
               });
               const legacyWinnerHeadingVisible = await page.locator('#root h3')
-                .filter({ hasText: /Pemenang Terbaru\\s*&\\s*Riwayat/i })
+                .filter({ hasText: /Pemenang Terbaru\s*&\s*Riwayat/i })
                 .first().isVisible().catch(() => false);
               const financeUnavailable = /Data Keuangan Belum Tersedia/i.test(publicText);
               const stillLoading = /Memuat data warga/i.test(publicText);
