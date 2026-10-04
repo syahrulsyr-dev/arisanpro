@@ -45,13 +45,31 @@ jobs:
             async function inspect(name, viewport) {
               const context = await browser.newContext({ viewport });
               const page = await context.newPage();
+              let phase = 'initial';
               page.on('pageerror', error => errors.push({
-                type: 'pageerror', viewport: name, phase: 'initial', message: error.message
+                type: 'pageerror', viewport: name, phase, message: error.message
               }));
               page.on('console', message => {
                 if (message.type() === 'error') errors.push({
-                  type: 'console-error', viewport: name, phase: 'initial', message: message.text()
+                  type: 'console-error',
+                  viewport: name,
+                  phase,
+                  message: message.text(),
+                  location: message.location()
                 });
+              });
+              page.on('response', response => {
+                if (response.status() >= 400) {
+                  errors.push({
+                    type: 'http-response-error',
+                    viewport: name,
+                    phase,
+                    status: response.status(),
+                    url: response.url(),
+                    method: response.request().method(),
+                    resourceType: response.request().resourceType()
+                  });
+                }
               });
 
               const response = await page.goto(target, {
@@ -75,6 +93,7 @@ jobs:
               // This remains read-only: no admin login and no mutation actions are triggered.
               const publicUrl = new URL(target);
               publicUrl.searchParams.set('view', 'public');
+              phase = 'public-route';
               const publicResponse = await page.goto(publicUrl.toString(), {
                 waitUntil: 'domcontentloaded', timeout: 60000
               });
@@ -95,6 +114,7 @@ jobs:
               const financeSectionVisible = await page.locator('#aw-public-finance').count() > 0;
               const financeUnavailable = /Data Keuangan Belum Tersedia/i.test(publicText);
               const stillLoading = /Memuat data warga/i.test(publicText);
+              const visibleNaN = /NaN/i.test(publicText);
               const dimensions = await page.evaluate(() => ({
                 viewportWidth: window.innerWidth,
                 documentClientWidth: document.documentElement.clientWidth,
@@ -122,6 +142,7 @@ jobs:
                 financeSectionVisible,
                 financeUnavailable,
                 stillLoading,
+                visibleNaN,
                 publicRoute: publicUrl.toString(),
                 ...dimensions
               };
@@ -139,6 +160,9 @@ jobs:
             try {
               await inspect('desktop', { width: 1440, height: 1000 });
               await inspect('mobile', { width: 390, height: 844 });
+              if (summary.some(result => result.visibleNaN)) {
+                throw new Error('Public view displays NaN in visible text; inspect winner/amount formatting.');
+              }
             } finally {
               fs.writeFileSync('test-results/browser-errors.json', JSON.stringify(errors, null, 2));
               fs.writeFileSync('test-results/test-summary.json', JSON.stringify(summary, null, 2));
