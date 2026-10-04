@@ -6662,13 +6662,73 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
     }
     return window.__supaClient||null;
   }
+  async function clearLiveDrawAfterReset(c,id,reason='winner-reset'){
+    const wanted=String(id||'');
+    for(let attempt=1;attempt<=3;attempt++){
+      try{
+        const q=await c.from('undian_live')
+          .select('id,status,winner_id,winner_nama')
+          .eq('id','live-1')
+          .maybeSingle();
+        if(q.error)throw q.error;
+        const live=q.data||null;
+        if(!live)return true;
+
+        // Never interrupt an unrelated draw. Only clear a live overlay that
+        // still points to the winner just removed by this reset operation.
+        if(String(live.winner_id??'')!==wanted)return true;
+
+        const u=await c.from('undian_live').update({
+          status:'idle',
+          current_name:'',
+          current_index:null,
+          winner_id:null,
+          winner_nama:null,
+          periode_id:'',
+          periode_nama:'',
+          updated_at:new Date().toISOString()
+        }).eq('id','live-1').select('id,status,winner_id').maybeSingle();
+
+        if(u.error)throw u.error;
+
+        const verify=await c.from('undian_live')
+          .select('id,status,winner_id')
+          .eq('id','live-1')
+          .maybeSingle();
+
+        if(!verify.error && (!verify.data || (
+          String(verify.data.status||'')==='idle' &&
+          !verify.data.winner_id
+        ))){
+          console.log('✅ V121 live draw cleared after reset:',reason);
+          return true;
+        }
+      }catch(e){
+        console.warn('⚠️ V121 live draw clear retry',reason,attempt,e?.message||e);
+      }
+      await new Promise(resolve=>setTimeout(resolve,150*attempt));
+    }
+    return false;
+  }
+
   async function rpcResetOne(id){
     const c=await getClientReady();
     if(!c?.rpc)throw new Error('Supabase client belum siap / sesi login belum tersedia');
     try{const s=await c.auth?.getSession?.();if(s?.data && !s.data.session)throw new Error('Sesi login belum tersedia');}catch(e){if(e?.message==='Sesi login belum tersedia')throw e;}
     const r=await c.rpc('reset_pemenang',{p_pemenang_id:String(id)});
     if(r?.error)throw r.error;
-    return r?.data||{};
+    const result=r?.data||{};
+
+    // New DB RPC clears undian_live atomically. Older LIVE RPCs don't expose
+    // live_cleared, so verify and self-heal only if the live row still points
+    // to this exact winner.
+    if(result?.live_cleared!==true){
+      const cleared=await clearLiveDrawAfterReset(c,id,'rpc-reset-fallback');
+      if(!cleared){
+        throw new Error('Winner berhasil direset, tetapi state undian publik belum berhasil dibersihkan. Silakan coba refresh Link Warga.');
+      }
+    }
+    return result;
   }
 
   async function resetAllWinners(){
@@ -6683,8 +6743,9 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
       if(!confirm('Reset '+rows.length+' pemenang? Semua akan diproses melalui reset_pemenang di Supabase.'))return;
       let reversed=0;
       for(const row of rows){const r=await rpcResetOne(row.id);reversed+=Number(r?.reversed_amount||0);}
-      try{await c.from('undian_live').upsert({id:'live-1',status:'idle',current_name:'',winner_id:null,winner_nama:null,periode_id:'',periode_nama:'',updated_at:new Date().toISOString()},{onConflict:'id'});}catch{}
+      const liveClear=await clearAllLiveDraw(c,'reset-all-winners');
       try{await window.__dbForcePull?.('reset-all-winners')}catch{}
+      if(!liveClear)throw new Error('Semua pemenang sudah direset, tetapi state undian publik belum berhasil dibersihkan. Silakan refresh Link Warga.');
       alert('Reset pemenang berhasil: '+rows.length+' data diproses via Supabase.'+(reversed>0?' Dana dibalikkan Rp '+reversed.toLocaleString('id-ID')+'.':''));
     }catch(err){console.error('❌ V121 Reset Pemenang:',err);alert('Reset pemenang gagal: '+String(err?.message||err).slice(0,260));}
   }
