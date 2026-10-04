@@ -1667,11 +1667,14 @@ function __AW_WINNERS_PER_PERIOD__(settings={}){
   return Math.max(1,Math.min(60,Number.isFinite(n)?Math.floor(n):1));
 }
 function __AW_TOTAL_WINNER_SLOTS__(settings={}){
-  const n=Number(settings?.jumlahPeriode??settings?.jumlah_periode??12);
-  return Math.max(1,Math.min(60,Number.isFinite(n)?Math.floor(n):12));
+  const periodsRaw=Number(settings?.jumlahPeriode??settings?.jumlah_periode??12);
+  const per=__AW_WINNERS_PER_PERIOD__(settings);
+  const periodCount=Math.max(1,Math.min(60,Number.isFinite(periodsRaw)?Math.floor(periodsRaw):12));
+  return Math.max(1,Math.min(360,periodCount*per));
 }
 function __AW_EFFECTIVE_PERIOD_COUNT__(settings={}){
-  return Math.max(1,Math.ceil(__AW_TOTAL_WINNER_SLOTS__(settings)/__AW_WINNERS_PER_PERIOD__(settings)));
+  const periodsRaw=Number(settings?.jumlahPeriode??settings?.jumlah_periode??12);
+  return Math.max(1,Math.min(60,Number.isFinite(periodsRaw)?Math.floor(periodsRaw):12));
 }
 function __AW_EFFECTIVE_PERIODS__(periods,settings={}){
   const list=Array.isArray(periods)?periods:[];
