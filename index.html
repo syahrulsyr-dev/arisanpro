@@ -6919,7 +6919,7 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
       const wrap=Array.from(detail.querySelectorAll('div')).find(d=>d.querySelector('table')&&d!==detail);
       wrap?.classList.add('aw-v121-report-scroll-detail');
     }
-    if(latest&&detail){
+    if(latest&&detail&&isMobile()){
       let tabs=root.querySelector('.aw-v121-report-tabs');
       if(!tabs){
         tabs=document.createElement('div');tabs.className='aw-v121-report-tabs';
@@ -6944,8 +6944,9 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
   function scan(){
     if(!isAdmin())return;
     setupFinance();
+    setupReports(page('laporan'));
     if(!isMobile())return;
-    setupModalClasses();setupIuran(page('iuran'));setupMembers(page('anggota'));setupReports(page('laporan'));
+    setupModalClasses();setupIuran(page('iuran'));setupMembers(page('anggota'));
   }
   let timer=0;const schedule=()=>{clearTimeout(timer);timer=setTimeout(scan,40)};
   const observer=new MutationObserver(schedule);observer.observe(document.getElementById('root')||document.body,{childList:true,subtree:true});
@@ -7148,6 +7149,119 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .aw-
   }
   body:not(.aw-public-live) #root .aw-login-form{
     padding:18px 16px 16px!important;
+  }
+}
+</style>
+<style id="aw-v121-report-finance-web-owner">
+/* V121 WEB OWNER — report + finance sizing/scroll behavior for desktop/tablet.
+   Mobile remains owned by the existing responsive block above. */
+@media(min-width:768px){
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="laporan"] .aw-v121-report-latest,
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="laporan"] .aw-v121-report-detail{
+    min-width:0!important;
+    width:100%!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+    scroll-margin-top:24px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="laporan"] .aw-v121-report-scroll-latest,
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="laporan"] .aw-v121-report-scroll-detail{
+    width:100%!important;
+    max-width:100%!important;
+    max-height:420px!important;
+    overflow:auto!important;
+    overscroll-behavior:contain!important;
+    -webkit-overflow-scrolling:touch!important;
+    box-sizing:border-box!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="laporan"] .aw-v121-report-scroll-latest table,
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="laporan"] .aw-v121-report-scroll-detail table{
+    min-width:760px!important;
+    width:max-content!important;
+    max-width:none!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="laporan"] .aw-v121-report-latest h4,
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="laporan"] .aw-v121-report-detail h4{
+    font-size:13px!important;
+    line-height:1.25!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="laporan"] .aw-pr-filter{
+    gap:7px!important;
+    padding:7px!important;
+    margin:6px 0 0!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="laporan"] .aw-pr-filter .aw-pr-select,
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="laporan"] .aw-pr-filter .aw-pr-date,
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="laporan"] .aw-pr-filter .aw-pr-btn{
+    min-height:32px!important;
+    height:32px!important;
+    font-size:10px!important;
+    padding:0 9px!important;
+  }
+
+  /* Finance: keep the professional ledger card compact without hiding its data. */
+  body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace{
+    width:100%!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-head{
+    padding:14px 16px!important;
+    border-radius:16px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-title{
+    font-size:19px!important;
+    line-height:1.2!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-sub{
+    font-size:10px!important;
+    line-height:1.35!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-summary{
+    gap:8px!important;
+    padding:8px 10px 4px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-card{
+    padding:9px 10px!important;
+    border-radius:11px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-k{font-size:8px!important;}
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-v{font-size:16px!important;}
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-s{font-size:8.5px!important;}
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-actions{
+    gap:8px!important;
+    padding:7px 10px 10px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-action{
+    padding:9px 10px!important;
+    border-radius:11px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-action b{font-size:10px!important;}
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-action span{font-size:8px!important;}
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-body{
+    padding:0 10px 12px!important;
+    max-height:420px!important;
+    overflow:auto!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-body .al-filter{
+    gap:6px!important;
+    padding:7px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-body .al-filter input,
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-body .al-filter select{
+    height:30px!important;
+    font-size:9px!important;
+    padding:0 8px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-table-wrap{
+    max-height:300px!important;
+    overflow:auto!important;
   }
 }
 </style>
