@@ -84,7 +84,7 @@ jobs:
                   legacyWinnerDisplay:getComputedStyle(legacyWinner).display,
                   legacyLiveDisplay:getComputedStyle(oldLive).display,
                   legacy437Display:getComputedStyle(old437).display,
-                  smallOverlayDisplay:getComputedStyle(oldSmall).display,
+                  smallOverlayDisplay:oldSmall?getComputedStyle(oldSmall).display:'removed',
                   existsSmall:!!oldSmall,
                   rootScroll:Math.max(document.documentElement.scrollWidth,document.body.scrollWidth)-document.documentElement.clientWidth,
                   canonicalOverflow:canonical?canonical.scrollWidth-canonical.clientWidth:9999,
@@ -97,7 +97,7 @@ jobs:
               if(out.legacyWinnerDisplay!=='none') throw new Error('legacy winners visible @ '+width);
               if(out.legacyLiveDisplay!=='none') throw new Error('legacy V436 visible @ '+width);
               if(out.legacy437Display!=='none') throw new Error('legacy V437 visible @ '+width);
-              if(out.smallOverlayDisplay!=='none' || out.existsSmall) throw new Error('legacy small overlay visible/existing @ '+width);
+              if(out.smallOverlayDisplay!=='removed' || out.existsSmall) throw new Error('legacy small overlay visible/existing @ '+width);
               if(out.rootScroll>0 || out.canonicalOverflow>0) throw new Error('horizontal overflow @ '+width);
               if(out.canonicalWidth<=0) throw new Error('canonical winners width zero @ '+width);
               if(width<768 && stats.length!==4) throw new Error('stats not rendered @ '+width);
