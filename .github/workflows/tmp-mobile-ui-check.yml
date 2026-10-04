@@ -83,7 +83,8 @@ jobs:
             if(result.label.fontSize!=='9.5px')throw new Error('Chart label font mismatch: '+result.label.fontSize);
             if(result.chartItem.width!=='46px')throw new Error('Chart column width mismatch: '+result.chartItem.width);
             if(result.bar.width!=='18px')throw new Error('Chart bar width mismatch: '+result.bar.width);
-            if(!result.memberGrid.columns.includes('1fr'))throw new Error('Member grid is not two-column.');
+            const memberTracks = result.memberGrid.columns.trim().split(/\s+/).filter(Boolean);
+            if(memberTracks.length!==2)throw new Error('Member grid is not two-column: '+result.memberGrid.columns);
             if(result.memberName.fontSize!=='12px')throw new Error('Member name font mismatch: '+result.memberName.fontSize);
             if(result.memberDetail.fontSize!=='9.5px')throw new Error('Member detail font mismatch: '+result.memberDetail.fontSize);
             if(result.overflow.hasHorizontalOverflow)throw new Error('Page-level horizontal overflow detected.');
