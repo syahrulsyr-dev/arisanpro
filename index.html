@@ -4008,7 +4008,7 @@ async function load(){
       const pc=window.__supaClient;
       if(pc?.from){ const lr=await pc.from("undian_live").select("*").eq("id","live-1").maybeSingle(); financeSnapshot.undianLive=lr?.data||null; }
     }catch(e){ financeSnapshot.undianLive=null; }
-    renderPublicLiveDraw(financeSnapshot.undianLive);
+    /* V121 canonical public live-draw renderer owns #aw-v121-public-live-stage. */
     window.__AW_PUBLIC_FINANCE_SNAPSHOT__=financeSnapshot;
     window.__AW_PUBLIC_FINANCE_ERROR__=null;
     try{window.dispatchEvent(new CustomEvent('aw-public-finance-update',{detail:financeSnapshot}))}catch{}
