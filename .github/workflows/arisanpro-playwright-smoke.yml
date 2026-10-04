@@ -71,20 +71,30 @@ jobs:
               }
               if (initialText.trim().length < 50) throw new Error(`${name}: page body is unexpectedly empty`);
 
-              // Only enter the public/read-only view; do not log in or trigger admin mutations.
-              const publicButton = page.getByRole('button', {
-                name: /Lihat sebagai Warga\s*\(Tanpa Login\)/i
+              // Test the actual public-link route. The finance snapshot loader is gated by ?view=public.
+              // This remains read-only: no admin login and no mutation actions are triggered.
+              const publicUrl = new URL(target);
+              publicUrl.searchParams.set('view', 'public');
+              const publicResponse = await page.goto(publicUrl.toString(), {
+                waitUntil: 'domcontentloaded', timeout: 60000
               });
-              if (await publicButton.count() < 1) {
-                throw new Error(`${name}: public-view button was not found`);
+              try {
+                await page.waitForFunction(() =>
+                  !!document.querySelector('#aw-public-finance') ||
+                  /Data Keuangan Belum Tersedia/i.test(document.body?.innerText || ''),
+                  { timeout: 20000 }
+                );
+              } catch {
+                // Continue to capture diagnostics and screenshot before marking the readiness check failed.
               }
-              await publicButton.first().evaluate(el => el.click());
-              await page.waitForTimeout(4000);
 
               const publicText = await page.locator('body').innerText().catch(() => '');
               const loginHeadingVisible = await page.getByRole('heading', {
                 name: /Masuk sebagai Pengelola/i
               }).isVisible().catch(() => false);
+              const financeSectionVisible = await page.locator('#aw-public-finance').count() > 0;
+              const financeUnavailable = /Data Keuangan Belum Tersedia/i.test(publicText);
+              const stillLoading = /Memuat data warga/i.test(publicText);
               const dimensions = await page.evaluate(() => ({
                 viewportWidth: window.innerWidth,
                 documentClientWidth: document.documentElement.clientWidth,
@@ -102,19 +112,26 @@ jobs:
                 viewport: name,
                 url: page.url(),
                 httpStatus: response.status(),
+                publicHttpStatus: publicResponse ? publicResponse.status() : null,
                 title,
                 initialTextLength: initialText.length,
                 initialTextPreview: initialText.slice(0, 500),
                 publicTextLength: publicText.length,
                 publicTextPreview: publicText.slice(0, 1000),
-                loginHeadingVisibleAfterPublicClick: loginHeadingVisible,
-                publicViewClick: 'completed',
+                loginHeadingVisibleAfterPublicRoute: loginHeadingVisible,
+                financeSectionVisible,
+                financeUnavailable,
+                stillLoading,
+                publicRoute: publicUrl.toString(),
                 ...dimensions
               };
               summary.push(result);
               console.log(JSON.stringify(result, null, 2));
-              if (publicText.trim().length < 50) {
-                throw new Error(`${name}: public view body is unexpectedly empty after click`);
+              if (!publicResponse || !publicResponse.ok()) {
+                throw new Error(`${name}: public route HTTP response is not OK`);
+              }
+              if (!financeSectionVisible) {
+                throw new Error(`${name}: canonical public finance snapshot did not render (financeUnavailable=${financeUnavailable}, stillLoading=${stillLoading})`);
               }
               await context.close();
             }
