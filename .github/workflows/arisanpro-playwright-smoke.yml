@@ -123,12 +123,17 @@ jobs:
               }).isVisible().catch(() => false);
               const financeSectionVisible = await page.locator('#aw-public-finance').count() > 0;
               const canonicalWinnerSectionCount = await page.locator('#aw-v121-public-winners-canonical').count();
+              const canonicalWinnerSectionPosition = await page.evaluate(() => {
+                const finance = document.querySelector('#aw-public-finance');
+                const winners = document.querySelector('#aw-v121-public-winners-canonical');
+                return !!finance && !!winners && finance.parentElement === winners.parentElement && finance.nextElementSibling === winners;
+              });
               const legacyWinnerHeadingVisible = await page.locator('#root h3')
                 .filter({ hasText: /Pemenang Terbaru\\s*&\\s*Riwayat/i })
                 .first().isVisible().catch(() => false);
               const financeUnavailable = /Data Keuangan Belum Tersedia/i.test(publicText);
               const stillLoading = /Memuat data warga/i.test(publicText);
-              const nanMatches = publicText.match(/\\bNaN\\b|Rp\\s*NaN/gi) || [];
+              const nanMatches = publicText.match(/\bNaN\b|Rp\s*NaN/gi) || [];
               const visibleNaN = nanMatches.length > 0;
               const dimensions = await page.evaluate(() => ({
                 viewportWidth: window.innerWidth,
@@ -156,6 +161,7 @@ jobs:
                 loginHeadingVisibleAfterPublicRoute: loginHeadingVisible,
                 financeSectionVisible,
                 canonicalWinnerSectionCount,
+                canonicalWinnerSectionPosition,
                 legacyWinnerHeadingVisible,
                 financeUnavailable,
                 stillLoading,
@@ -174,6 +180,9 @@ jobs:
               }
               if (name === 'mobile' && canonicalWinnerSectionCount !== 1) {
                 throw new Error('Mobile canonical Supabase winner section did not render.');
+              }
+              if (name === 'mobile' && !canonicalWinnerSectionPosition) {
+                throw new Error('Mobile canonical winner section is not positioned next to the finance summary.');
               }
               if (name === 'mobile' && legacyWinnerHeadingVisible) {
                 throw new Error('Mobile still displays the duplicate legacy winner-history panel.');
