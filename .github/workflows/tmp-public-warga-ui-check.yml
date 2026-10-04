@@ -51,13 +51,21 @@ jobs:
               const page=await browser.newPage({viewport:{width,height:900}});
               await page.setContent(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${styles}</style></head><body class="aw-public-live"><div id="root">${shell}</div></body></html>`);
               await page.evaluate(()=>{
-                const finance=document.querySelector('#aw-public-finance');
-                const sec=document.createElement('section');
-                sec.id='aw-v121-public-winners-canonical';
-                sec.className='aw-v121-public-winners-canonical';
-                sec.innerHTML='<div class="card"><div class="head"><div class="eyebrow">Pemenang Terbaru & Riwayat</div><div class="source">Sumber: Supabase • read-only</div></div><div class="latest"><div><div class="name">Budi Santoso</div><div class="meta">Periode Oktober 2026 • 03 Okt 2026</div></div><div class="amount">Rp200.000</div></div><div class="hist"><div class="row"><div><div class="name">Pemenang terbaru • Budi Santoso</div><div class="meta">Periode Oktober 2026 • 03 Okt 2026 • Belum dibayar</div></div><div class="amount">Rp200.000</div></div></div></div>';
-                finance.parentNode.insertBefore(sec,finance.nextSibling);
+                const makeQuery=(data)=>{const p=Promise.resolve(data);p.select=()=>p;p.order=()=>p;return p};
+                const payload={
+                  pemenang:{data:[{id:'w2',anggota_id:'m2',periode_id:'p2',tanggal_undi:'2026-10-03',nominal:200000},{id:'w1',anggota_id:'m1',periode_id:'p1',tanggal_undi:'2026-09-03',nominal:200000}]},
+                  anggota:{data:[{id:'m1',nama:'Budi Santoso',rt:'01',color:'#059669'},{id:'m2',nama:'Siti Aminah',rt:'02',color:'#0f766e'}]},
+                  periode:{data:[{id:'p1',nama:'Periode September 2026',bulan:9,tahun:2026},{id:'p2',nama:'Periode Oktober 2026',bulan:10,tahun:2026}]},
+                  pembayaran_pemenang:{data:[{pemenang_id:'w1',nominal:200000,tanggal_bayar:'2026-09-04'}]}
+                };
+                window.__supaClient={from:(table)=>makeQuery(payload[table]||{data:[],error:null}),channel:()=>({on(){return this},subscribe(){return this}})};
+                const el=document.createElement('script');
+                el.textContent="";
               });
+              await page.evaluate((code)=>{
+                code=code.replace(/const isPublic=.*?;\\n/,'const isPublic=()=>true;\\n');
+                const el=document.createElement('script');el.textContent=code;document.body.appendChild(el);
+              }, publicScript.replace(/<script[^>]*>|<\\/script>/g,''));
               const out=await page.evaluate(()=>{
                 const canonical=document.querySelector('#aw-v121-public-winners-canonical');
                 const legacyWinner=document.querySelector('#legacy-winners');
