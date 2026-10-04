@@ -1,0 +1,107 @@
+name: ArisanPro Undian Canonical Verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/undian-live-canonical-r2
+    paths:
+      - index.html
+      - .github/workflows/arisanpro-undian-canonical-verify.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Verify Undian admin/public contracts
+        run: |
+          mkdir -p test-results
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/arisanpro-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            curl --silent --fail http://127.0.0.1:4173/ > /dev/null && break
+            sleep 1
+          done
+          cat > verify.cjs <<'NODE'
+          const { chromium } = require('playwright');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const errors=[];
+            const ctx=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+            const page=await ctx.newPage();
+            page.on('pageerror',e=>errors.push('pageerror: '+e.message));
+            page.on('console',m=>{if(m.type()==='error')errors.push('console: '+m.text())});
+            await page.goto('http://127.0.0.1:4173/?view=public',{waitUntil:'domcontentloaded',timeout:60000});
+            await page.waitForTimeout(4500);
+            const publicChecks=await page.evaluate(()=>{
+              const html=document.documentElement.innerHTML;
+              return {
+                legacyRendererSource: html.includes('function renderPublicLiveDraw(live)'),
+                legacyRendererCall: html.includes('renderPublicLiveDraw('),
+                canonicalRendererSource: html.includes('function renderLive(live)'),
+                legacyLivePoll: html.includes('let livePollTimer=setInterval'),
+                canonicalLiveStageSource: html.includes('aw-v121-public-live-stage'),
+              };
+            });
+            if(publicChecks.legacyRendererSource||publicChecks.legacyRendererCall||publicChecks.legacyLivePoll) throw new Error('Legacy public live-draw renderer/poll still present: '+JSON.stringify(publicChecks));
+
+            await page.goto('http://127.0.0.1:4173/',{waitUntil:'domcontentloaded',timeout:60000});
+            await page.evaluate(()=>localStorage.setItem('arisan_session',JSON.stringify({username:'admin',role:'admin'})));
+            await page.reload({waitUntil:'domcontentloaded',timeout:60000});
+            await page.waitForTimeout(5000);
+            const admin=await page.evaluate(()=>{
+              const go=window.__arisanUiActions?.goToPage;
+              if(typeof go==='function')go('undian');
+              return true;
+            });
+            await page.waitForTimeout(1200);
+            const adminChecks=await page.evaluate(()=>{
+              const root=document.querySelector('#root main[data-aw-page="undian"]');
+              const bodyText=document.body.innerText||'';
+              return {
+                pageVisible: !!root && getComputedStyle(root).display!=='none',
+                sqlPembayaran: /SQL Pembayaran/i.test(bodyText),
+                resetButton: Array.from(root?.querySelectorAll('button')||[]).some(b=>/^Reset Pemenang$/i.test((b.textContent||'').trim())),
+                cancelButtons: root?.querySelectorAll('[data-aw-v121-winner-id]').length||0,
+                resetHook: typeof window.__AW_V121_RESET_ALL_WINNERS__==='function',
+                publicLiveLegacyNode: !!document.getElementById('aw-public-live-draw'),
+                documentWidth: document.documentElement.clientWidth,
+                scrollWidth: document.documentElement.scrollWidth,
+                horizontalOverflow: document.documentElement.scrollWidth>document.documentElement.clientWidth+1
+              };
+            });
+            if(!adminChecks.pageVisible) throw new Error('Tab Undian tidak tampil setelah navigasi.');
+            if(adminChecks.sqlPembayaran) throw new Error('SQL Pembayaran masih tampil.');
+            if(!adminChecks.resetButton) throw new Error('Tombol Reset Pemenang tidak ditemukan.');
+            if(!adminChecks.resetHook) throw new Error('Reset winner action hook tidak tersedia.');
+            if(adminChecks.horizontalOverflow) throw new Error('Horizontal overflow mobile pada Tab Undian.');
+            console.log(JSON.stringify({publicChecks,adminChecks,errors},null,2));
+            await page.screenshot({path:'test-results/undian-mobile.png',fullPage:true});
+            await ctx.close();
+            await browser.close();
+            if(errors.length) process.exitCode=1;
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+          node verify.cjs
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arisanpro-undian-canonical-results
+          path: test-results/
+          retention-days: 7
