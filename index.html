@@ -4017,9 +4017,10 @@ async function load(){
     if(publicTarget)render(financeSnapshot);
 
     const engine=window.__AW_FINANCIAL_ENGINE__;
-    const current=engine?.resolveCurrentPeriod?.(
-      financeSnapshot.periods,new Date(),financeSnapshot
-    )||null;
+    // Public snapshot uses iuran as its transport field; the financial engine
+    // canonical path uses iurans. The canonicalForPublic result above is the
+    // authoritative current-period decision for the public snapshot.
+    const current=financeSnapshot.currentPeriod||canonicalForPublic?.data?.currentPeriod||null;
 
     console.log('📊 V22.5.95 FIX2 CANONICAL PUBLIC LOAD — Admin/Public data contract',{
       anggota:financeSnapshot.members.length,
@@ -4089,12 +4090,17 @@ window.__AW_V22583_PUBLIC_CANONICAL_DIAGNOSTIC__=async function(){
   if(!isPublic())return {ok:false,reason:'not-public'};
   const d=window.__AW_PUBLIC_FINANCE_SNAPSHOT__||await window.__AW_LOAD_CANONICAL_FINANCE_SNAPSHOT__();
   const e=window.__AW_FINANCIAL_ENGINE__;
-  const cur=e?.resolveCurrentPeriod?.(d.periods,new Date(),d)||null;
-  const vm=e?.buildViewModel?.({
+  const publicData={
     iurans:d.iuran,periods:d.periods,extra:d.extra,expenses:d.expenses,
     winners:d.winners,winnerPayments:d.winnerPayments,settings:d.settings,
     refunds:d.refunds,credits:d.credits,members:d.members
-  })||null;
+  };
+  // Re-enter the same canonical engine contract used by the loader instead of
+  // passing the transport-shaped public snapshot (iuran) directly to the
+  // engine resolver (iurans).
+  const canonical=e?.canonicalSnapshot?.(publicData)||null;
+  const cur=canonical?.data?.currentPeriod||d.currentPeriod||null;
+  const vm=e?.buildViewModel?.(publicData)||null;
   return {
     ok:true,canonicalLoader:window.__AW_CANONICAL_PUBLIC_ADMIN_DATA_V22583__===true,
     counts:{members:d.members.length,periods:d.periods.length,iuran:d.iuran.length,extra:d.extra.length,expenses:d.expenses.length,winners:d.winners.length,refunds:d.refunds.length,credits:d.credits.length},
