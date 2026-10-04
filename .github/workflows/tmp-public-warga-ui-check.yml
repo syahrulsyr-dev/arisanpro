@@ -63,9 +63,9 @@ jobs:
                 el.textContent="";
               });
               await page.evaluate((code)=>{
-                code=code.replace(/const isPublic=.*?;\\n/,'const isPublic=()=>true;\\n');
+                code=code.replace('  if(!isPublic())return;','  if(false)return;');
                 const el=document.createElement('script');el.textContent=code;document.body.appendChild(el);
-              }, publicScript.replace(/<script[^>]*>|<\\/script>/g,''));
+              }, publicScript.slice(publicScript.indexOf('>')+1,publicScript.lastIndexOf('</script>')));
               await page.waitForTimeout(800);
               const out=await page.evaluate(()=>{
                 const canonical=document.querySelector('#aw-v121-public-winners-canonical');
