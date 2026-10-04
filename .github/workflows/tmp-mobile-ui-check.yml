@@ -94,3 +94,5 @@ jobs:
           NODE
 
 # trigger: branch-only UI verification
+
+# trigger: two-column computed-track assertion
