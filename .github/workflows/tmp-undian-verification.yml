@@ -30,7 +30,8 @@ jobs:
             noWrongMobileReset:!html.includes("async function resetAllWinners(){\n    if(!isMobile()||!isAdmin())return;")
           };
           for(const [k,v] of Object.entries(checks)){console.log(k,v?'PASS':'FAIL');if(!v)process.exit(1);}
-          const scripts=[...html.matchAll(/<script(?:[^>]*)>([\\s\\S]*?)<\\/script>/gi)].map(m=>m[1]).filter(x=>x.trim());
+          const scripts=[]; let pos=0;
+          while((pos=html.indexOf('<script',pos))>=0){const openEnd=html.indexOf('>',pos);if(openEnd<0)break;const close=html.indexOf('</script>',openEnd+1);if(close<0)break;const body=html.slice(openEnd+1,close);if(body.trim())scripts.push(body);pos=close+9;}
           for(let i=0;i<scripts.length;i++){const p='/tmp/aw-scripts/'+i+'.js';fs.writeFileSync(p,scripts[i]);cp.execFileSync(process.execPath,['--check',p]);}
           fs.writeFileSync('test-results/static.json',JSON.stringify({checks,inlineScripts:scripts.length},null,2));
           NODE
