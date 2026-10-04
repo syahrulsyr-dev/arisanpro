@@ -1,0 +1,89 @@
+name: Temp Iuran UI Check
+on:
+  push:
+    branches:
+      - fix/iuran-tab-responsive-r2
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  iuran-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Validate scripts and Iuran CSS
+        run: |
+          mkdir -p test-results
+          node <<'NODE'
+          const fs=require('fs'), cp=require('child_process');
+          const html=fs.readFileSync('index.html','utf8');
+          const checks=[
+            ['iuran-r2-css', html.includes('id="aw-v121-iuran-r2"')],
+            ['iuran-matrix-marker', html.includes('"data-aw-v121-iuran-matrix":"1"')],
+            ['stable-payment-opener', html.includes('window.__arisanUI?.openPayment')],
+            ['pending-payment-fallback', html.includes('window.__AW_V121_PENDING_MODAL__="payment"')],
+            ['matrix-scroll-css', /\.aw-v121-matrix-scroll\{[\\s\\S]*?overflow-y:auto!important/.test(html)],
+          ];
+          for(const [name,ok] of checks){ console.log(name, ok?'PASS':'FAIL'); if(!ok) process.exit(1); }
+          const scripts=[...html.matchAll(/<script(?:[^>]*)>([\\s\\S]*?)<\\/script>/gi)].map(m=>m[1]).filter(x=>x.trim());
+          fs.mkdirSync('/tmp/aw-scripts',{recursive:true});
+          for(let i=0;i<scripts.length;i++){
+            const p='/tmp/aw-scripts/script-'+i+'.js';
+            fs.writeFileSync(p,scripts[i]);
+            try{cp.execFileSync(process.execPath,['--check',p],{stdio:'pipe'});}
+            catch(e){console.error('SCRIPT SYNTAX FAIL',i,String(e.stderr||e.stdout||e));process.exit(1);}
+          }
+          console.log('Inline script syntax: PASS ('+scripts.length+' scripts)');
+          fs.writeFileSync('test-results/static-summary.json',JSON.stringify({checks,scripts:scripts.length},null,2));
+          NODE
+          cat > check-iuran.cjs <<'NODE'
+          const {chromium}=require('playwright');
+          const fs=require('fs');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const results=[];
+            for(const v of [{name:'390',width:390,height:844},{name:'1440',width:1440,height:1000}]){
+              const page=await browser.newPage({viewport:{width:v.width,height:v.height}});
+              await page.goto('http://127.0.0.1:4173/index.html',{waitUntil:'domcontentloaded'});
+              const r=await page.evaluate(()=>{
+                document.body.className='aw-authenticated';
+                const main=document.createElement('main');
+                main.setAttribute('data-aw-page','iuran');
+                main.innerHTML='<div class="aw-v121-iuran-action-row"><button class="aw-v121-iuran-add-btn">➕ Catat Iuran</button></div><div class="aw-v121-matrix-scroll"><table><thead><tr><th>Anggota / Periode</th><th>Periode 1</th></tr></thead><tbody>'+('<tr><td>Warga</td><td>Lunas</td></tr>'.repeat(30))+'</tbody></table></div>';
+                document.getElementById('root')?.appendChild(main) || document.body.appendChild(main);
+                const a=main.querySelector('.aw-v121-iuran-add-btn'), m=main.querySelector('.aw-v121-matrix-scroll');
+                const table=m.querySelector('table'), th=m.querySelector('thead th'), firstTd=m.querySelector('tbody td');
+                const ca=getComputedStyle(a), cm=getComputedStyle(m), ct=getComputedStyle(th), cf=getComputedStyle(firstTd);
+                m.scrollTop=100;
+                return {buttonWidth:Math.round(a.getBoundingClientRect().width),buttonHeight:Math.round(a.getBoundingClientRect().height),matrixHeight:Math.round(m.getBoundingClientRect().height),overflowY:cm.overflowY,overflowX:cm.overflowX,matrixScrollTop:m.scrollTop,theadSticky:ct.position,firstColSticky:cf.position,tableWidth:Math.round(table.getBoundingClientRect().width),docOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1};
+              });
+              console.log(v.name,JSON.stringify(r));
+              if(r.overflowY!=='auto'||r.overflowX!=='auto'||r.matrixScrollTop!==100||r.theadSticky!=='sticky'||r.firstColSticky!=='sticky'||r.matrixHeight<=0||r.buttonWidth<=0) throw new Error('Iuran CSS check failed at '+v.name+'px');
+              if(r.docOverflow) throw new Error('Horizontal document overflow at '+v.name+'px');
+              results.push({viewport:v.name,...r});
+            }
+            fs.writeFileSync('test-results/iuran-ui-summary.json',JSON.stringify(results,null,2));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/aw-http.log 2>&1 &
+          PID=$!
+          trap 'kill $PID 2>/dev/null || true' EXIT
+          sleep 2
+          node check-iuran.cjs
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: temp-iuran-ui-check
+          path: test-results/
+          retention-days: 3
