@@ -3967,30 +3967,15 @@ async function load(){
 }
 window.__AW_PUBLIC_FORCE_REFRESH__=load;
 
-function renderPublicLiveDraw(live){
-  try{
-    const old=document.getElementById("aw-public-live-draw");
-    if(!live || !["shuffling","countdown","winner"].includes(String(live.status||""))){ if(old) old.remove(); return; }
-    let el=old;
-    if(!el){
-      el=document.createElement("div"); el.id="aw-public-live-draw"; document.body.appendChild(el);
-    }
-    const status=String(live.status||"");
-    const title=status==="winner"?"🎉 Pemenang Ditemukan":"🎲 Pengundian LIVE";
-    const sub=status==="shuffling"?"Sedang mengundi…":status==="countdown"?"Hitung mundur…":"Hasil undian live";
-    const name=String(live.winner_nama||live.current_name||"—");
-    el.innerHTML='<div class="aw-v121-public-live-card"><div class="aw-v121-public-live-kicker">'+title+'</div><div class="aw-v121-public-live-period">'+String(live.periode_nama||live.periode_id||"Periode")+'</div><div class="aw-v121-public-live-name">'+name+'</div><div class="aw-v121-public-live-sub">'+sub+'</div><div class="aw-v121-public-live-time">Live dari Supabase • '+new Date().toLocaleTimeString("id-ID")+'</div></div>';
-  }catch(e){ console.warn("Public live draw overlay:",e); }
-}
+/* V121 canonical public draw owns live rendering; legacy public renderer removed. */
 
 async function subscribe(){
   const cfg=await waitForConfig();
   const c=window.__supaClient||cfg.client;if(!c?.channel)return null;
   try{
     const ch=c.channel('aw-public-financial-v17');
-    ['iuran','periode','pemasukan_lain','pengeluaran','pemenang','pembayaran_pemenang','settings','iuran_refund','iuran_kredit','undian_live'].forEach(table=>{
+    ['iuran','periode','pemasukan_lain','pengeluaran','pemenang','pembayaran_pemenang','settings','iuran_refund','iuran_kredit'].forEach(table=>{
       ch.on('postgres_changes',{event:'*',schema:'public',table},payload=>{
-        if(table==='undian_live'){ renderPublicLiveDraw(payload?.new||payload?.old||null); return; }
         clearTimeout(__awPublicReloadTimer);
         __awPublicReloadTimer=setTimeout(()=>load(),350);
       });
@@ -4011,15 +3996,7 @@ function boot(){
   let ch=null;
   subscribe().then(x=>{ch=x});
   Promise.resolve().then(()=>load()).catch(e=>console.warn('⚠️ V22.5.95 public boot:',e));
-  let livePollTimer=setInterval(async()=>{
-    if(document.visibilityState!=='visible'||!isPublic())return;
-    try{
-      const c=window.__supaClient;if(!c?.from)return;
-      const r=await c.from('undian_live').select('*').eq('id','live-1').maybeSingle();
-      if(!r.error&&r.data){renderPublicLiveDraw(r.data);if(String(r.data.status||'')==='winner')setTimeout(()=>{try{load()}catch{}},250);}
-    }catch{}
-  },1200);
-  window.addEventListener('beforeunload',()=>{clearInterval(livePollTimer);if(ch&&window.__supaClient?.removeChannel)window.__supaClient.removeChannel(ch)});
+  window.addEventListener('beforeunload',()=>{if(ch&&window.__supaClient?.removeChannel)window.__supaClient.removeChannel(ch)});
 }
 
 window.__AW_V22583_PUBLIC_CANONICAL_DIAGNOSTIC__=async function(){
