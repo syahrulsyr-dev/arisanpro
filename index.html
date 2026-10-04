@@ -4064,15 +4064,39 @@ async function subscribe(){
    * needs the actual Supabase client instance, so briefly wait for it.
    */
   let c=window.__supaClient||cfg.client||null;
+  /*
+   * Do not rely only on the shared client bootstrap. The public page already
+   * exposes getSupa(), which reuses the single V15 client singleton when ready
+   * and can initialize it here when the async bootstrap has not done so yet.
+   */
+  if(!c?.channel && typeof getSupa==='function'){
+    try{
+      const ready=getSupa();
+      if(ready){
+        c=ready;
+        window.__supaClient=ready;
+      }
+    }catch(e){console.warn('⚠️ Public financial REALTIME: getSupa init:',e?.message||e)}
+  }
   if(!c?.channel){
-    const until=Date.now()+8000;
+    const until=Date.now()+12000;
     while(Date.now()<until){
       c=window.__supaClient||null;
+      if(!c?.channel && typeof getSupa==='function'){
+        try{
+          const ready=getSupa();
+          if(ready){
+            c=ready;
+            window.__supaClient=ready;
+          }
+        }catch{}
+      }
       if(c?.channel)break;
       await new Promise(r=>setTimeout(r,100));
     }
   }
   if(!c?.channel){
+    window.__AW_V121_PUBLIC_REALTIME_READY__=false;
     console.warn('⚠️ Public financial REALTIME: Supabase client belum siap setelah retry window');
     return null;
   }
