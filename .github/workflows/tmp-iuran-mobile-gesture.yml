@@ -1,0 +1,65 @@
+name: Temp Iuran Mobile Gesture Check
+on:
+  push:
+    branches:
+      - fix/iuran-mobile-gesture-scroll-r5
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Verify touch scrolling
+        run: |
+          mkdir -p test-results
+          cat > verify.cjs <<'NODE'
+          const {chromium}=require('playwright'),fs=require('fs');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
+            const errors=[];
+            page.on('pageerror',e=>errors.push(e.message));
+            await page.goto('file://'+process.cwd()+'/index.html',{waitUntil:'domcontentloaded'});
+            const r=await page.evaluate(async()=>{
+              document.body.className='aw-authenticated';
+              const root=document.getElementById('root')||document.body;
+              const main=document.createElement('main');
+              main.setAttribute('data-aw-page','iuran');
+              main.innerHTML='<div class="aw-v121-matrix-scroll" style="margin:20px;width:340px"><table><thead><tr><th>Anggota</th>'+Array.from({length:6},(_,i)=>'<th>P'+i+'</th>').join('')+'</tr></thead><tbody>'+Array.from({length:40},()=>'<tr><td>Warga</td>'+Array.from({length:6},()=>'<td>Lunas</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+              root.appendChild(main);
+              await new Promise(requestAnimationFrame);
+              const el=main.querySelector('.aw-v121-matrix-scroll');
+              const cs=getComputedStyle(el);
+              const mkTouch=(x,y)=>new Touch({identifier:Date.now(),target:el,clientX:x,clientY:y});
+              const start=mkTouch(200,500);
+              el.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,cancelable:true,touches:[start],targetTouches:[start],changedTouches:[start]}));
+              const move=mkTouch(200,300);
+              const ev=new TouchEvent('touchmove',{bubbles:true,cancelable:true,touches:[move],targetTouches:[move],changedTouches:[move]});
+              const dispatchResult=el.dispatchEvent(ev);
+              return {overflowY:cs.overflowY,overflowX:cs.overflowX,touchAction:cs.touchAction,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight,scrollTop:el.scrollTop,dispatchResult,defaultPrevented:ev.defaultPrevented,scriptFlag:window.__AW_V121_IURAN_TOUCH_SCROLL_R5__===true};
+            });
+            console.log(JSON.stringify(r,null,2));
+            if(r.overflowY!=='scroll'||r.scrollHeight<=r.clientHeight||r.scrollTop<=0||r.defaultPrevented||!r.scriptFlag) throw new Error('Mobile gesture scroll verification failed');
+            if(errors.length) throw new Error('page errors: '+errors.join(' | '));
+            fs.writeFileSync('test-results/result.json',JSON.stringify(r,null,2));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+          node verify.cjs
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: temp-iuran-mobile-gesture
+          path: test-results/
+          retention-days: 3
