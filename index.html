@@ -3348,7 +3348,7 @@ grant execute on function public.bayar_pemenang(text,date) to authenticated;
     const stRows=await c.from('settings').select('jumlah_periode,pemenang_per_periode,tgl_mulai').eq('id','main').maybeSingle();
     if(stRows.error)throw stRows.error;
     const lifeSettings=stRows.data||{};
-    const allPeriodsRow=await c.from('periode').select('id,nama,bulan,tahun,status,jatuh_tempo,tgl_kocok');
+    const allPeriodsRow=await c.from('periode').select('id,nama,bulan,tahun,status,jatuh_tempo');
     if(allPeriodsRow.error)throw allPeriodsRow.error;
     const effectivePeriods=typeof window.__AW_EFFECTIVE_PERIODS__==='function'?window.__AW_EFFECTIVE_PERIODS__(allPeriodsRow.data||[],lifeSettings):(allPeriodsRow.data||[]);
     const targetCount=typeof window.__AW_PERIOD_WINNER_TARGET__==='function'?window.__AW_PERIOD_WINNER_TARGET__(cur,effectivePeriods,lifeSettings):1;
