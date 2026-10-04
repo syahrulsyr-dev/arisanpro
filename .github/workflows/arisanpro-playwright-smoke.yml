@@ -140,6 +140,47 @@ jobs:
                 throw new Error(`Winner pot 3-slot allocation failed: ${JSON.stringify(winnerPotAudit)}`);
               }
 
+              // Winner lifecycle must treat canonical and legacy period IDs as the same period.
+              const winnerLifecycleAliasAudit = await page.evaluate(() => {
+                const engine = window.__AW_FINANCIAL_ENGINE__;
+                const periods = [
+                  { id: "periode-2026-9", label: "Periode September 2026", bulan: 9, tahun: 2026, nominal: 100000, status: "open" }
+                ];
+                const members = [
+                  { id: "m-a", nama: "A", statusAktif: true }
+                ];
+                const winners = [{
+                  id: "w-alias",
+                  periode_id: "periode_2026_9",
+                  anggota_id: "m-a",
+                  nominal_dapat: 100000
+                }];
+                const payments = [{ id: "pay-alias", pemenang_id: "w-alias", nominal: 100000 }];
+                const settings = { jumlahPeriode: 1, pemenangPerPeriode: 1, nominal: 100000 };
+                const result = engine?.winnerPaymentStatus?.(
+                  periods[0], winners, payments, periods, settings
+                );
+                return {
+                  result: result ? {
+                    winnerCount: result.winnerCount,
+                    paidCount: result.paidCount,
+                    targetReached: result.targetReached,
+                    allPaid: result.allPaid,
+                    drawn: result.drawn
+                  } : null,
+                  periodEquivalent: engine?.periodEquivalent?.("periode_2026_9", "periode-2026-9", periods) ?? false
+                };
+              });
+              console.log(JSON.stringify({ winnerLifecycleAliasAudit }, null, 2));
+              if (winnerLifecycleAliasAudit.periodEquivalent !== true ||
+                  winnerLifecycleAliasAudit.result?.winnerCount !== 1 ||
+                  winnerLifecycleAliasAudit.result?.paidCount !== 1 ||
+                  winnerLifecycleAliasAudit.result?.targetReached !== true ||
+                  winnerLifecycleAliasAudit.result?.allPaid !== true ||
+                  winnerLifecycleAliasAudit.result?.drawn !== true) {
+                throw new Error(`Winner lifecycle alias contract failed: ${JSON.stringify(winnerLifecycleAliasAudit)}`);
+              }
+
               // Deterministic draw-eligibility contract: read-only synthetic data.
               // This catches period-ID aliases, previous winners, inactive members,
               // partial payments, and the only-paid configuration without touching LIVE data.
