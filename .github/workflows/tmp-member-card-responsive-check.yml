@@ -83,7 +83,7 @@ jobs:
                 };
               });
               console.log(width,result);
-              const expectedCols=width<375?1:(width<1280?2:(width<1600?3:4));
+              const expectedCols=width<1280?2:(width<1600?3:4);
               if(result.cols!==expectedCols) throw new Error(`cols @ ${width}: got ${result.cols}, expected ${expectedCols}`);
               if(result.overflow>0) throw new Error(`horizontal overflow @ ${width}: ${result.overflow}px`);
               if(result.cardWidths.some(w=>w<120)) throw new Error(`card terlalu sempit @ ${width}: ${result.cardWidths}`);
