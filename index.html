@@ -4058,7 +4058,24 @@ window.__AW_PUBLIC_FORCE_REFRESH__=load;
 
 async function subscribe(){
   const cfg=await waitForConfig();
-  const c=window.__supaClient||cfg.client;if(!c?.channel)return null;
+  /*
+   * Public URL parameters can satisfy waitForConfig() before the shared
+   * __supaClient exists. Do not stop there: the financial realtime channel
+   * needs the actual Supabase client instance, so briefly wait for it.
+   */
+  let c=window.__supaClient||cfg.client||null;
+  if(!c?.channel){
+    const until=Date.now()+8000;
+    while(Date.now()<until){
+      c=window.__supaClient||null;
+      if(c?.channel)break;
+      await new Promise(r=>setTimeout(r,100));
+    }
+  }
+  if(!c?.channel){
+    console.warn('⚠️ Public financial REALTIME: Supabase client belum siap setelah retry window');
+    return null;
+  }
   try{
     const ch=c.channel('aw-public-financial-v17');
     ['iuran','periode','pemasukan_lain','pengeluaran','pemenang','pembayaran_pemenang','settings','iuran_refund','iuran_kredit'].forEach(table=>{
