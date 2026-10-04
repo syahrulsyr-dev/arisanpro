@@ -5796,7 +5796,14 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
   function renderWinners(rows){
     if(!mobile()||!rows)return;
     let sec=document.getElementById('aw-v121-public-winners-canonical');
-    if(!sec){sec=document.createElement('section');sec.id='aw-v121-public-winners-canonical';sec.className='aw-v121-public-winners-canonical';const anchor=document.getElementById('aw-public-finance');if(anchor)anchor.parentNode.insertBefore(sec,anchor.nextSibling);else document.body.appendChild(sec);}
+    if(!sec){sec=document.createElement('section');sec.id='aw-v121-public-winners-canonical';sec.className='aw-v121-public-winners-canonical';}
+    // The winner loader may finish before the finance summary exists. Reposition the section on every refresh.
+    const anchor=document.getElementById('aw-public-finance');
+    if(anchor&&(sec.parentNode!==anchor.parentNode||sec.previousElementSibling!==anchor)){
+      anchor.parentNode.insertBefore(sec,anchor.nextSibling);
+    }else if(!anchor&&!sec.isConnected){
+      document.body.appendChild(sec);
+    }
     const latest=rows[0];
     const latestHtml=latest?'<div class="latest"><div><div class="name">'+esc(latest.name)+'</div><div class="meta">'+esc(latest.period)+' • '+date(latest.date)+'</div><div class="meta">'+(latest.paid?'✓ Sudah dibayar':'Belum dicairkan')+'</div></div><div class="amount">'+money(latest.amount)+'</div></div>':'<div class="latest"><div><div class="name">Belum ada pemenang</div><div class="meta">Belum ada data pemenang di Supabase.</div></div></div>';
     const hist=rows.length?rows.slice(0,20).map((r,i)=>'<div class="row"><div><div class="name">'+(i===0?'Pemenang terbaru • ':'')+esc(r.name)+'</div><div class="meta">'+esc(r.period)+' • '+date(r.date)+(r.paid?' • Dibayar '+date(r.paymentDate):' • Belum dibayar')+'</div></div><div class="amount">'+money(r.amount)+'</div></div>').join(''):'<div class="row"><div class="meta">Belum ada riwayat pemenang.</div></div>';
