@@ -1426,6 +1426,20 @@ window.__AW_FINANCIAL_ENGINE__=(()=>{
     if(o.hasLate)return {label:'Terlambat',kind:'late',paid:0,due,remaining,rawPaid,creditApplied};
     return {label:'Belum',kind:'unpaid',paid:0,due,remaining,rawPaid,creditApplied};
   };
+  const drawPotMemberCount=(members=[])=>{
+    const list=Array.isArray(members)?members:[];
+    return list.filter(m=>m?.statusAktif!==false&&status(m?.status)!=='nonaktif'&&status(m?.status)!=='inactive').length;
+  };
+  const drawPotAllocation=(settings={},members=[],targetCount=1,winnerIndex=0)=>{
+    const memberCount=Math.max(1,drawPotMemberCount(members));
+    const nominalPerMember=Math.max(0,num(settings?.nominal??settings?.nominal_iuran));
+    const totalPot=nominalPerMember*memberCount;
+    const targets=Math.max(1,Math.floor(num(targetCount)||1));
+    const slot=Math.max(0,Math.floor(num(winnerIndex)||0));
+    const base=Math.floor(totalPot/targets);
+    const remainder=totalPot%targets;
+    return Object.freeze({memberCount,nominalPerMember,totalPot,targetCount:targets,winnerIndex:slot,pot:base+(slot<remainder?1:0)});
+  };
   const drawEligibleMembers=(members=[],targetPeriod,winners=[],data={},onlyPaid=true)=>{
     const source=data?.data&&typeof data.data==='object'?data.data:(data&&typeof data==='object'?data:{});
     const list=Array.isArray(members)?members:[];
@@ -1451,7 +1465,7 @@ window.__AW_FINANCIAL_ENGINE__=(()=>{
     }
     return list.filter(m=>m?.statusAktif!==false&&status(m?.status)!=='nonaktif'&&status(m?.status)!=='inactive'&&!wonBy.has(id(m?.id))&&(!onlyPaid||memberPeriodStatus(m?.id,target.id,source).kind==='paid'));
   };
-return Object.freeze({num,periodNom,paymentNom,resolveCurrentPeriod,calculate,buildViewModel,canonicalSnapshot,canonicalStatus,canonicalSummary,canonicalMemberPeriod,memberPeriodStatus,memberPeriodSummary,paymentShortfall,availableCredit,availableRefund,winnerPaymentStatus,periodLifecycle,nextPeriod,periodEquivalent,drawEligibleMembers,periodWinnerTarget:window.__AW_PERIOD_WINNER_TARGET__});
+return Object.freeze({num,periodNom,paymentNom,resolveCurrentPeriod,calculate,buildViewModel,canonicalSnapshot,canonicalStatus,canonicalSummary,canonicalMemberPeriod,memberPeriodStatus,memberPeriodSummary,paymentShortfall,availableCredit,availableRefund,winnerPaymentStatus,periodLifecycle,nextPeriod,periodEquivalent,drawPotMemberCount,drawPotAllocation,drawEligibleMembers,periodWinnerTarget:window.__AW_PERIOD_WINNER_TARGET__});
 })();
 
 // V22.5.67 — current-period first-not-completed diagnostic. Read-only.
@@ -1983,10 +1997,10 @@ function ud(){let[e,n]=N.useState(null),[t,l]=N.useState({u:"",p:""}),[r,u]=N.us
  for(let O of["3","2","1"])yd(O),Fu(O),$i(),await dr({status:"countdown",current_name:O,current_index:parseInt(O),periode_id:drawPeriodId,periode_nama:h}),await new Promise(B=>setTimeout(B,700));
  let V=We[Math.floor(Math.random()*We.length)];
  const winnerIndex=existingCount;
- const totalPot=Math.max(0,Number(settings.nominal)||0)*Math.max(1,m.length);
- const base=Math.floor(totalPot/Math.max(1,targetCount));
- const remainder=totalPot%Math.max(1,targetCount);
- const pot=base+(winnerIndex<remainder?1:0);
+ const potCalc=engine?.drawPotAllocation
+   ?engine.drawPotAllocation(settings,m,targetCount,winnerIndex)
+   :(()=>{const memberCount=Math.max(1,m.filter(x=>x?.statusAktif!==false&&String(x?.status||'').toLowerCase()!=='nonaktif'&&String(x?.status||'').toLowerCase()!=='inactive').length),totalPot=Math.max(0,Number(settings.nominal)||0)*memberCount,base=Math.floor(totalPot/Math.max(1,targetCount)),remainder=totalPot%Math.max(1,targetCount);return{pot:base+(winnerIndex<remainder?1:0)}})();
+ const pot=potCalc.pot;
  const winnerId="w"+Date.now()+Math.random().toString(36).slice(2,7);
  const winnerPayload={id:winnerId,periode_id:drawPeriodId,anggota_id:V.id,tanggal_undi:new Date().toISOString(),nominal_dapat:pot,periode_nama:h,anggota_nama:V.nama};
  try{
@@ -5219,8 +5233,9 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
       const targetCount=engine?.periodWinnerTarget?engine.periodWinnerTarget(q.p,latestPeriods,latest.settings||{}):(typeof window.__AW_PERIOD_WINNER_TARGET__==='function'?window.__AW_PERIOD_WINNER_TARGET__(q.p,latestPeriods,latest.settings||{}):1);
       const remainingNow=Math.max(targetCount-existingLatest.length,0);if(selected.length>remainingNow)return alert('Data pemenang berubah di database. Silakan refresh dan coba lagi.');
       const stillEligible=engine?.drawEligibleMembers?engine.drawEligibleMembers(activeMembers(latest),q.p.id,latestWinners,latest,(latest.settings?.hanyaLunasUndian??true)===true):[];const eligibleIds=new Set(stillEligible.map(x=>String(x.id)));if(selected.some(id=>!eligibleIds.has(id))){return alert('Salah satu anggota sudah tidak eligible. Silakan refresh lalu coba lagi.')}
-      const totalPot=Math.max(0,Number(latest.settings?.nominal)||0)*Math.max(1,activeMembers(latest).length),base=Math.floor(totalPot/Math.max(1,targetCount)),remainder=totalPot%Math.max(1,targetCount),dateIso=new Date(tanggal+'T00:00:00').toISOString();
-      const rows=selected.map((memberId,index)=>{const member=activeMembers(latest).find(m=>String(m.id)===memberId);const winnerIndex=existingLatest.length+index;return{id:'w'+Date.now()+Math.random().toString(36).slice(2,9),periode_id:q.p.id,anggota_id:member.id,tanggal_undi:dateIso,nominal_dapat:base+(winnerIndex<remainder?1:0),periode_nama:periodLabel(q.p),anggota_nama:member.nama||member.id}});
+      const potMembers=activeMembers(latest);
+      const dateIso=new Date(tanggal+'T00:00:00').toISOString();
+      const rows=selected.map((memberId,index)=>{const member=potMembers.find(m=>String(m.id)===memberId);const winnerIndex=existingLatest.length+index;const potCalc=engine?.drawPotAllocation?engine.drawPotAllocation(latest.settings||{},potMembers,targetCount,winnerIndex):{pot:0};return{id:'w'+Date.now()+Math.random().toString(36).slice(2,9),periode_id:q.p.id,anggota_id:member.id,tanggal_undi:dateIso,nominal_dapat:potCalc.pot,periode_nama:periodLabel(q.p),anggota_nama:member.nama||member.id}});
       save.disabled=true;save.textContent='Menyimpan…';
       try{const c=window.__supaClient;if(!c?.from)throw Error('Supabase client belum siap');const r=await c.from('pemenang').insert(rows).select('*');if(r.error)throw r.error;close();try{await window.__dbForcePull?.('manual-winner-multi')}catch{}alert(`${rows.length} pemenang manual berhasil disimpan untuk ${periodLabel(q.p)}.`)}catch(err){save.disabled=false;save.textContent='Simpan Pemenang';alert('Gagal menyimpan pemenang manual: '+String(err?.message||err).slice(0,320))}
     };
