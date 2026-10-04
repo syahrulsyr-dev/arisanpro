@@ -698,6 +698,67 @@ html.aw-modal-open,body.aw-modal-open{overflow:hidden!important;overscroll-behav
 body.aw-modal-open .aw-modal-fixed{touch-action:none!important}
 body.aw-modal-open .aw-modal-fixed>div{touch-action:auto!important}
 </style>
+
+<style id="aw-v121-member-cards-r6">
+/* V121 R6 — compact member cards: stable 2-column mobile layout */
+@media (max-width:767px){
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3{
+    display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;
+    width:100%!important;height:min(58dvh,500px)!important;max-height:500px!important;
+    overflow-y:auto!important;overflow-x:hidden!important;align-content:start!important;
+    padding:2px 2px 4px!important;box-sizing:border-box!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div{
+    width:100%!important;min-width:0!important;max-width:none!important;min-height:0!important;height:auto!important;
+    padding:10px!important;border-radius:14px!important;overflow:hidden!important;box-sizing:border-box!important;
+    display:flex!important;flex-direction:column!important;gap:8px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div>div{
+    min-width:0!important;max-width:100%!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div>div:first-child{
+    width:100%!important;display:flex!important;flex-wrap:nowrap!important;align-items:center!important;
+    gap:8px!important;margin:0!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div>div:first-child>div:first-child{
+    flex:0 0 32px!important;width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;font-size:10px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div>div:first-child>div:nth-child(2){
+    flex:1 1 auto!important;min-width:0!important;width:auto!important;overflow:hidden!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div>div:first-child>div:nth-child(2) .text-sm{
+    display:block!important;min-width:0!important;max-width:100%!important;font-size:11px!important;line-height:1.18!important;font-weight:700!important;
+    white-space:normal!important;overflow-wrap:anywhere!important;word-break:break-word!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div>div:first-child>div:nth-child(2) .text-xs{
+    display:block!important;font-size:8.5px!important;line-height:1.2!important;white-space:normal!important;overflow-wrap:anywhere!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div>div:first-child>div:last-child{
+    flex:0 0 auto!important;width:auto!important;min-width:0!important;margin-left:auto!important;display:flex!important;align-items:center!important;gap:4px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div>div:nth-child(2){
+    width:100%!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important;margin:0!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div>div:nth-child(2)>div{
+    min-width:0!important;padding:6px 3px!important;border-radius:8px!important;overflow:hidden!important;text-align:center!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div>div:nth-child(2) .text-sm{
+    font-size:10px!important;line-height:1.15!important;white-space:normal!important;overflow-wrap:anywhere!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div>div:nth-child(2) .text-xs{
+    font-size:7.5px!important;line-height:1.15!important;white-space:normal!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div>div:last-child{
+    width:100%!important;min-width:0!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:6px!important;margin-top:auto!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3>div button{
+    min-width:0!important;max-width:100%!important;height:30px!important;padding:0 7px!important;font-size:8.5px!important;line-height:1!important;
+    white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+  }
+}
+</style>
+
 </head>
 <body>
 <style id="aw-finance-redesign-css">
