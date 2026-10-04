@@ -5748,7 +5748,6 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
 (function(){
   'use strict';
   const isPublic=()=>{try{return new URLSearchParams(location.search).get('view')==='public'}catch{return false}};
-  const mobile=()=>window.matchMedia?.('(max-width:767px)').matches===true;
   if(!isPublic())return;
   const wait=ms=>new Promise(r=>setTimeout(r,ms));
   const text=el=>String(el?.textContent||'').replace(/\s+/g,' ').trim();
@@ -5759,7 +5758,7 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
 
   function hideLegacyDraw(){
     document.getElementById('aw-public-live-draw')?.remove();
-    document.querySelectorAll('#root .aw-v437-ready').forEach(x=>x.classList.add('aw-v121-hide-public-legacy-draw'));
+    document.querySelectorAll('#root .aw-v436-draw-overlay,#root .aw-v437-ready').forEach(x=>x.classList.add('aw-v121-hide-public-legacy-draw'));
   }
 
   async function winnerRows(){
@@ -5783,6 +5782,7 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
   }
 
   function hideLegacyWinners(){
+    if(!document.getElementById('aw-v121-public-winners-canonical'))return;
     document.querySelectorAll('#root h3').forEach(h=>{
       if(/Pemenang Terbaru\s*&\s*Riwayat/i.test(text(h))){
         const panel=h.parentElement;
@@ -5806,27 +5806,35 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
   }
 
   function renderWinners(rows){
-    if(!mobile()||!rows)return;
+    if(!rows)return;
     let sec=document.getElementById('aw-v121-public-winners-canonical');
     if(!sec){sec=document.createElement('section');sec.id='aw-v121-public-winners-canonical';sec.className='aw-v121-public-winners-canonical';}
-    // The winner loader may finish before the finance summary exists. Reposition it whenever the summary appears.
-    if(!positionCanonicalWinnerSection()&&!sec.isConnected)document.body.appendChild(sec);
+    if(!positionCanonicalWinnerSection()&&!sec.isConnected){
+      const host=document.querySelector('#root > div.min-h-screen > .max-w-5xl > div.bg-white');
+      if(host)host.appendChild(sec);
+      else return;
+    }
     const latest=rows[0];
     const latestHtml=latest?'<div class="latest"><div><div class="name">'+esc(latest.name)+'</div><div class="meta">'+esc(latest.period)+' • '+date(latest.date)+'</div><div class="meta">'+(latest.paid?'✓ Sudah dibayar':'Belum dicairkan')+'</div></div><div class="amount">'+money(latest.amount)+'</div></div>':'<div class="latest"><div><div class="name">Belum ada pemenang</div><div class="meta">Belum ada data pemenang di Supabase.</div></div></div>';
     const hist=rows.length?rows.slice(0,20).map((r,i)=>'<div class="row"><div><div class="name">'+(i===0?'Pemenang terbaru • ':'')+esc(r.name)+'</div><div class="meta">'+esc(r.period)+' • '+date(r.date)+(r.paid?' • Dibayar '+date(r.paymentDate):' • Belum dibayar')+'</div></div><div class="amount">'+money(r.amount)+'</div></div>').join(''):'<div class="row"><div class="meta">Belum ada riwayat pemenang.</div></div>';
-    sec.innerHTML='<div class="card"><div class="head"><div class="eyebrow">Pemenang Terbaru & Riwayat</div><div style="font-size:9px;font-weight:750;color:#475569;margin-top:3px">Sumber: Supabase • read-only</div></div>'+latestHtml+'<div class="hist">'+hist+'</div></div>';
+    sec.innerHTML='<div class="card"><div class="head"><div class="eyebrow">Pemenang Terbaru & Riwayat</div><div class="source">Sumber: Supabase • read-only</div></div>'+latestHtml+'<div class="hist">'+hist+'</div></div>';
     hideLegacyWinners();
   }
 
   let stageTimer=0;
+  let lastLiveKey='';
+  let closedLiveKey='';
   function clearStage(){clearTimeout(stageTimer);document.getElementById('aw-v121-public-live-stage')?.remove();}
   function renderLive(live){
-    if(!mobile())return;
     const valid=live&&['shuffling','countdown','winner'].includes(String(live.status||''));
-    if(!valid){clearStage();return;}
+    if(!valid){lastLiveKey='';closedLiveKey='';clearStage();return;}
+    const status=String(live.status||'');
+    const liveKey=[status,live.periode_id||'',live.winner_id||'',live.winner_nama||'',live.current_name||'',live.updated_at||''].join('|');
+    if(status==='winner'&&closedLiveKey===liveKey&&!document.getElementById('aw-v121-public-live-stage'))return;
+    if(liveKey===lastLiveKey&&document.getElementById('aw-v121-public-live-stage'))return;
+    lastLiveKey=liveKey;
     let el=document.getElementById('aw-v121-public-live-stage');
     if(!el){el=document.createElement('div');el.id='aw-v121-public-live-stage';el.className='aw-v121-public-live-stage';document.body.appendChild(el);}
-    const status=String(live.status||'');
     const period=String(live.periode_nama||live.periode_id||'Periode');
     const current=String(live.current_name||'');
     let body='';
@@ -5834,8 +5842,9 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
     else if(status==='winner')body='<div class="status">🎉 Pemenang terpilih</div><div class="name">'+esc(live.winner_nama||current||'—')+'</div><div class="winner">Hasil undian tersimpan live di Supabase</div>';
     else body='<div class="status">Sedang mengocok kandidat…</div><div class="name">'+esc(current||'Sedang mengundi…')+'</div>';
     el.innerHTML='<div class="panel"><div class="ring"></div><div class="ring2"></div><div class="dots"></div><div class="content"><div class="kicker">ARISAN PRO • LIVE DRAW</div><div class="period">'+esc(period)+'</div>'+body+'<button type="button" aria-label="Tutup animasi live">Tutup</button></div></div>';
-    el.querySelector('button')?.addEventListener('click',()=>el.remove(),{once:true});
-    clearTimeout(stageTimer);if(status==='winner')stageTimer=setTimeout(clearStage,5200);
+    el.querySelector('button')?.addEventListener('click',()=>{closedLiveKey=liveKey;clearStage();},{once:true});
+    clearTimeout(stageTimer);
+    if(status==='winner')stageTimer=setTimeout(()=>{closedLiveKey=liveKey;clearStage()},5200);
   }
 
   async function refresh(){
@@ -5844,7 +5853,7 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
   }
   async function pollLive(){
     const c=await client();if(!c?.from)return;
-    try{const r=await c.from('undian_live').select('*').eq('id','live-1').maybeSingle();if(!r.error&&r.data)renderLive(r.data)}catch{}
+    try{const r=await c.from('undian_live').select('*').eq('id','live-1').maybeSingle();if(!r.error)renderLive(r.data||null)}catch{}
   }
   async function boot(){
     await wait(250);await refresh();await pollLive();
@@ -5862,7 +5871,8 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
     }
     setInterval(pollLive,600);
     setInterval(refresh,1800);
-    const mo=new MutationObserver(()=>{hideLegacyDraw();hideLegacyWinners();positionCanonicalWinnerSection();});mo.observe(document.getElementById('root')||document.body,{childList:true,subtree:true});
+    const mo=new MutationObserver(()=>{hideLegacyDraw();hideLegacyWinners();positionCanonicalWinnerSection();});
+    mo.observe(document.getElementById('root')||document.body,{childList:true,subtree:true});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
