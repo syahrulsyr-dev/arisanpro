@@ -27,6 +27,9 @@ jobs:
           if(!src.includes('aw-v121-public-canonical-r2')) throw new Error('Public canonical R2 CSS tidak ditemukan');
           if(!src.includes('id="aw-v121-public-live-canonical"')) throw new Error('Public canonical script tidak ditemukan');
           const styles=src.split('<style').slice(1).map(x=>x.slice(x.indexOf('>')+1,x.indexOf('</style>'))).join('\n');
+          const scriptStart=src.indexOf('<script id="aw-v121-public-live-canonical">');
+          const scriptEnd=src.indexOf('</script>',scriptStart)+9;
+          const publicScript=src.slice(scriptStart,scriptEnd);
 
           const shell=`
           <div class="min-h-screen">
