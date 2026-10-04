@@ -52,7 +52,7 @@ jobs:
               const html=document.documentElement.innerHTML;
               return {
                 legacyRendererSource: html.includes('function renderPublicLiveDraw(live)'),
-                legacyRendererCall: html.includes('renderPublicLiveDraw('),
+                legacyRendererCall: html.includes('renderPublicLiveDraw(r.data)') || html.includes('renderPublicLiveDraw(live)'),
                 canonicalRendererSource: html.includes('function renderLive(live)'),
                 legacyLivePoll: html.includes('let livePollTimer=setInterval'),
                 canonicalLiveStageSource: html.includes('aw-v121-public-live-stage'),
