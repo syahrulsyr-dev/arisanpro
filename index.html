@@ -6945,8 +6945,10 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
     if(!isAdmin())return;
     setupFinance();
     setupReports(page('laporan'));
+    setupIuran(page('iuran'));
+    setupMembers(page('anggota'));
     if(!isMobile())return;
-    setupModalClasses();setupIuran(page('iuran'));setupMembers(page('anggota'));
+    setupModalClasses();
   }
   let timer=0;const schedule=()=>{clearTimeout(timer);timer=setTimeout(scan,40)};
   const observer=new MutationObserver(schedule);observer.observe(document.getElementById('root')||document.body,{childList:true,subtree:true});
