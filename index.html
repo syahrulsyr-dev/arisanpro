@@ -6810,9 +6810,7 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
       if(!confirm('Reset '+rows.length+' pemenang? Semua akan diproses melalui reset_pemenang di Supabase.'))return;
       let reversed=0;
       for(const row of rows){const r=await rpcResetOne(row.id);reversed+=Number(r?.reversed_amount||0);}
-      const liveClear=await clearAllLiveDraw(c,'reset-all-winners');
       try{await window.__dbForcePull?.('reset-all-winners')}catch{}
-      if(!liveClear)throw new Error('Semua pemenang sudah direset, tetapi state undian publik belum berhasil dibersihkan. Silakan refresh Link Warga.');
       alert('Reset pemenang berhasil: '+rows.length+' data diproses via Supabase.'+(reversed>0?' Dana dibalikkan Rp '+reversed.toLocaleString('id-ID')+'.':''));
     }catch(err){console.error('❌ V121 Reset Pemenang:',err);alert('Reset pemenang gagal: '+String(err?.message||err).slice(0,260));}
   }
