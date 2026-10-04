@@ -1106,8 +1106,8 @@ window.__AW_FINANCIAL_ENGINE__=(()=>{
   };
   const periodEquivalent=(a,b,periods=[])=>{
     if(id(a)===id(b))return true;
-    const pa=periods.find(p=>id(p?.id)===id(a)),pb=periods.find(p=>id(p?.id)===id(b));
-    if(!pa||!pb)return false;
+    const pa=periods.find(p=>id(p?.id)===id(a))||{id:a};
+    const pb=periods.find(p=>id(p?.id)===id(b))||{id:b};
     const A=periodMeta(pa),B=periodMeta(pb),ya=A.y,yb=B.y,ma=A.m,mb=B.m;
     return ya>0&&yb>0&&ma>0&&mb>0&&ya===yb&&ma===mb;
   };
