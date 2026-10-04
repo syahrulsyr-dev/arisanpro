@@ -32,6 +32,14 @@ jobs:
       - name: Test deployed app and public view on desktop/mobile
         run: |
           mkdir -p test-results
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/arisanpro-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:4173/ > /dev/null || { cat /tmp/arisanpro-http.log; exit 1; }
           cat > smoke-test.cjs <<'NODE'
           const { chromium } = require('playwright');
           const fs = require('fs');
@@ -40,7 +48,7 @@ jobs:
             const browser = await chromium.launch({ headless: true });
             const errors = [];
             const summary = [];
-            const target = 'https://syahrulsyr-dev.github.io/arisanpro/';
+            const target = 'http://127.0.0.1:4173/';
 
             async function inspect(name, viewport) {
               const context = await browser.newContext({ viewport });
@@ -89,8 +97,8 @@ jobs:
               }
               if (initialText.trim().length < 50) throw new Error(`${name}: page body is unexpectedly empty`);
 
-              // Test the actual public-link route. The finance snapshot loader is gated by ?view=public.
-              // This remains read-only: no admin login and no mutation actions are triggered.
+              // Test this branch's checked-out index.html through a local static server.
+              // Then open the actual public-link route; no admin login or mutation actions are triggered.
               const publicUrl = new URL(target);
               publicUrl.searchParams.set('view', 'public');
               phase = 'public-route';
@@ -162,6 +170,18 @@ jobs:
               await inspect('mobile', { width: 390, height: 844 });
               if (summary.some(result => result.visibleNaN)) {
                 throw new Error('Public view displays NaN in visible text; inspect winner/amount formatting.');
+              }
+              const periodRestErrors = errors.filter(error =>
+                error.type === 'http-response-error' &&
+                Number(error.status) >= 400 &&
+                /\/rest\/v1\/periode(?:\?|$)/i.test(error.url || '')
+              );
+              if (periodRestErrors.length) {
+                throw new Error('Supabase periode REST request failed: ' +
+                  JSON.stringify(periodRestErrors.map(error => ({
+                    status: error.status, method: error.method, url: error.url
+                  })))
+                );
               }
             } finally {
               fs.writeFileSync('test-results/browser-errors.json', JSON.stringify(errors, null, 2));
