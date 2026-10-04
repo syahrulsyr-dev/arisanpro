@@ -24,12 +24,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install Playwright
         run: |
@@ -104,8 +104,6 @@ jobs:
               }
               if (initialText.trim().length < 50) throw new Error(`${name}: page body is unexpectedly empty`);
 
-              // Single-source winner-pot contract: auto and manual draw must use
-              // the same active-member base and exact integer remainder allocation.
               const winnerPotAudit = await page.evaluate(() => {
                 const engine = window.__AW_FINANCIAL_ENGINE__;
                 const members = [
@@ -141,7 +139,6 @@ jobs:
                 throw new Error(`Winner pot 3-slot allocation failed: ${JSON.stringify(winnerPotAudit)}`);
               }
 
-              // Winner lifecycle must treat canonical and legacy period IDs as the same period.
               const winnerLifecycleAliasAudit = await page.evaluate(() => {
                 const engine = window.__AW_FINANCIAL_ENGINE__;
                 const periods = [
@@ -187,7 +184,6 @@ jobs:
                 throw new Error(`Winner lifecycle alias contract failed: ${JSON.stringify(winnerLifecycleAliasAudit)}`);
               }
 
-              // Refund availability must resolve canonical/legacy period IDs identically.
               const refundAliasAudit = await page.evaluate(() => {
                 const engine = window.__AW_FINANCIAL_ENGINE__;
                 const periods = [
@@ -208,19 +204,13 @@ jobs:
                   members: [{ id: "m-a", statusAktif: true }]
                 };
                 const available = engine?.availableRefund?.("m-a", "periode-2026-9", data) ?? null;
-                return {
-                  available,
-                  expected: 100000
-                };
+                return { available, expected: 100000 };
               });
               console.log(JSON.stringify({ refundAliasAudit }, null, 2));
               if (Number(refundAliasAudit.available) !== refundAliasAudit.expected) {
                 throw new Error(`Refund period-alias contract failed: ${JSON.stringify(refundAliasAudit)}`);
               }
 
-              // Deterministic draw-eligibility contract: read-only synthetic data.
-              // This catches period-ID aliases, previous winners, inactive members,
-              // partial payments, and the only-paid configuration without touching LIVE data.
               const eligibilityAudit = await page.evaluate(() => {
                 const engine = window.__AW_FINANCIAL_ENGINE__;
                 if (!engine?.drawEligibleMembers || !engine?.periodEquivalent) {
@@ -315,8 +305,6 @@ jobs:
                 throw new Error(`Configurable unpaid eligibility failed: ${JSON.stringify(eligibilityAudit.unpaidMode)}`);
               }
 
-              // Test this branch's checked-out index.html through a local static server.
-              // Then open the actual public-link route; no admin login or mutation actions are triggered.
               const publicUrl = new URL(target);
               publicUrl.searchParams.set('view', 'public');
               phase = 'public-route';
@@ -329,19 +317,15 @@ jobs:
                   /Data Keuangan Belum Tersedia/i.test(document.body?.innerText || ''),
                   { timeout: 20000 }
                 );
-              } catch {
-                // Continue to capture diagnostics and screenshot before marking the readiness check failed.
-              }
-              // V1 realtime/public consistency: verify the actual public runtime, not only the DOM.
+              } catch {}
+
               try {
                 await page.waitForFunction(() =>
                   window.__AW_V121_PUBLIC_REALTIME_READY__ === true &&
                   window.__AW_V121_PUBLIC_CANONICAL_REALTIME__ === true,
                   { timeout: 20000 }
                 );
-              } catch {
-                // Capture the runtime state below so the assertion produces useful diagnostics.
-              }
+              } catch {}
 
               const realtimeAudit = await page.evaluate(() => {
                 const db = window.__supaClient;
@@ -390,7 +374,6 @@ jobs:
                 };
               });
 
-              // Wait for mobile winner history to move beside the finance summary and hide the legacy panel.
               if (name === 'mobile') {
                 await page.waitForFunction(() => {
                   const finance = document.querySelector('#aw-public-finance');
@@ -407,7 +390,6 @@ jobs:
                 await page.waitForTimeout(1000);
               }
 
-              // Desktop also needs to wait for the async canonical winner renderer.
               await page.waitForFunction(() => {
                 const section = document.querySelector("#aw-v121-public-winners-canonical");
                 return !!section &&
@@ -622,7 +604,7 @@ jobs:
 
       - name: Upload screenshots and diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: arisanpro-playwright-smoke-results
           path: test-results/
