@@ -25,7 +25,7 @@ jobs:
           node <<'NODE'
           const fs=require('fs');
           const html=fs.readFileSync('index.html','utf8');
-          if(!html.includes('window.__arisanUiActions?.openPayment()')) throw new Error('Correct payment action hook missing');
+          if(!html.includes('window.__arisanUiActions.openPayment()')) throw new Error('Correct payment action hook missing');
           if(html.includes('window.__arisanUI?.openPayment')) throw new Error('Old incorrect payment hook still present');
           if(!html.includes('id="aw-v121-iuran-r3-final"')) throw new Error('R3 final CSS missing');
           const scripts=[...html.matchAll(/<script(?:[^>]*)>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(Boolean);
