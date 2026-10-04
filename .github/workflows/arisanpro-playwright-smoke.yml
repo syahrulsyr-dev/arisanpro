@@ -203,6 +203,32 @@ jobs:
                   !!section.querySelector(".latest .amount");
               }, { timeout: 12000 }).catch(() => {});
 
+              const liveDrawAudit = await page.evaluate(async () => {
+                const db = window.__supaClient;
+                const result = { queryOk: false, queryError: null, row: null, stageVisible: false, stageText: null, stageName: null, stageCount: 0 };
+                if (!db?.from) {
+                  result.queryError = "Supabase client unavailable";
+                  return result;
+                }
+                try {
+                  const { data, error } = await db.from("undian_live").select("*").eq("id", "live-1").maybeSingle();
+                  if (error) {
+                    result.queryError = { code: error.code || null, message: error.message || String(error) };
+                    return result;
+                  }
+                  result.queryOk = true;
+                  result.row = data || null;
+                } catch (error) {
+                  result.queryError = { message: error?.message || String(error) };
+                  return result;
+                }
+                const stage = document.querySelector("#aw-v121-public-live-stage");
+                result.stageCount = document.querySelectorAll("#aw-v121-public-live-stage").length;
+                result.stageVisible = !!stage && getComputedStyle(stage).display !== "none";
+                result.stageText = stage?.innerText?.trim() || null;
+                result.stageName = stage?.querySelector(".name")?.textContent?.trim() || null;
+                return result;
+              });
               const publicWinnerDom = await page.evaluate(() => {
                 const section = document.querySelector("#aw-v121-public-winners-canonical");
                 const latest = section?.querySelector(".latest .name")?.textContent?.trim() || null;
@@ -218,6 +244,36 @@ jobs:
                 };
               });
 
+              if (liveDrawAudit.queryError?.code && !["42P01", "PGRST205"].includes(liveDrawAudit.queryError.code)) {
+                throw new Error(`${name}: undian_live query failed: ${JSON.stringify(liveDrawAudit.queryError)}`);
+              }
+              if (liveDrawAudit.queryOk && liveDrawAudit.row) {
+                const live = liveDrawAudit.row;
+                const status = String(live.status || "");
+                if (!["idle", "shuffling", "countdown", "winner", ""].includes(status)) {
+                  throw new Error(`${name}: undian_live has unexpected status ${status}`);
+                }
+                if (["shuffling", "countdown", "winner"].includes(status)) {
+                  if (!liveDrawAudit.stageVisible || liveDrawAudit.stageCount !== 1) {
+                    throw new Error(`${name}: active undian_live state is missing the canonical live-draw overlay: ${JSON.stringify(liveDrawAudit)}`);
+                  }
+                  if (status === "countdown" && !/Hitung mundur pengundian/i.test(liveDrawAudit.stageText || "")) {
+                    throw new Error(`${name}: countdown state is not rendered by the canonical live stage.`);
+                  }
+                  if (status === "winner") {
+                    const expected = String(live.winner_nama || live.current_name || "").trim();
+                    if (expected && liveDrawAudit.stageName !== expected) {
+                      throw new Error(`${name}: winner stage name mismatch. expected=${expected}, actual=${liveDrawAudit.stageName}`);
+                    }
+                  }
+                  if (status === "shuffling") {
+                    const expected = String(live.current_name || "").trim();
+                    if (expected && liveDrawAudit.stageName !== expected) {
+                      throw new Error(`${name}: shuffling stage name mismatch. expected=${expected}, actual=${liveDrawAudit.stageName}`);
+                    }
+                  }
+                }
+              }
               const publicText = await page.locator('body').innerText().catch(() => '');
               const loginHeadingVisible = await page.getByRole('heading', {
                 name: /Masuk sebagai Pengelola/i
