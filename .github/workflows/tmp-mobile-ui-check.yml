@@ -37,6 +37,7 @@ jobs:
             const page = await context.newPage();
             await page.goto('http://127.0.0.1:4174/', {waitUntil:'domcontentloaded'});
             await page.evaluate(() => {
+              const preservedCss = Array.from(document.querySelectorAll('style')).map(style => style.textContent || '').join('\n');
               document.body.classList.add('aw-authenticated');
               document.body.innerHTML = `
                 <div id="root">
@@ -55,6 +56,9 @@ jobs:
                   </main>
                 </div>
               `;
+              const cssStyle = document.createElement('style');
+              cssStyle.textContent = preservedCss;
+              document.head.appendChild(cssStyle);
             });
             const result = await page.evaluate(() => {
               const chart = document.querySelector('main[data-aw-page="dashboard"] .flex.items-end.gap-2.h-\\[160px\\]');
