@@ -6888,7 +6888,7 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
     // so dynamically-mounted legacy controls are covered without touching draw logic.
     root.querySelectorAll('button,[role="button"]').forEach(b=>{
       const t=text(b);
-      if(/SQL\\s*Pembayaran|Pembayaran\\s*SQL/i.test(t)){
+      if(/SQL\s*Pembayaran|Pembayaran\s*SQL/i.test(t)){
         b.remove();
       }
     });
