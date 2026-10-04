@@ -85,3 +85,5 @@ jobs:
             await context.close(); await browser.close();
           })().catch(err=>{console.error(err);process.exit(1);});
           NODE
+
+# trigger: branch-only UI verification
