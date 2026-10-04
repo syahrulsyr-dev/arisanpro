@@ -2,10 +2,16 @@ name: ArisanPro Playwright Smoke Test
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - index.html
+      - .github/workflows/arisanpro-playwright-smoke.yml
   push:
     branches:
       - test/playwright-smoke-v10
+      - test/public-realtime-verification-v1
     paths:
+      - index.html
       - .github/workflows/arisanpro-playwright-smoke.yml
 
 permissions:
@@ -114,6 +120,79 @@ jobs:
               } catch {
                 // Continue to capture diagnostics and screenshot before marking the readiness check failed.
               }
+              // V1 realtime/public consistency: verify the actual public runtime, not only the DOM.
+              try {
+                await page.waitForFunction(() =>
+                  window.__AW_V121_PUBLIC_REALTIME_READY__ === true &&
+                  window.__AW_V121_PUBLIC_CANONICAL_REALTIME__ === true,
+                  { timeout: 20000 }
+                );
+              } catch {
+                // Capture the runtime state below so the assertion produces useful diagnostics.
+              }
+
+              const realtimeAudit = await page.evaluate(() => {
+                const db = window.__supaClient;
+                const channels = db?.getChannels?.() || [];
+                const bindingTables = channels.map(ch =>
+                  (ch.bindings?.postgres_changes || [])
+                    .map(b => b.filter?.table)
+                    .filter(Boolean)
+                );
+                const snapshot = window.__AW_PUBLIC_FINANCE_SNAPSHOT__ || {};
+                const winners = Array.isArray(snapshot.winners)
+                  ? snapshot.winners
+                  : Array.isArray(snapshot.pemenang)
+                    ? snapshot.pemenang
+                    : [];
+                const latest = winners[0] || null;
+
+                return {
+                  financialReady: window.__AW_V121_PUBLIC_REALTIME_READY__ === true,
+                  canonicalReady: window.__AW_V121_PUBLIC_CANONICAL_REALTIME__ === true,
+                  channels: channels.map((ch, i) => ({
+                    index: i,
+                    topic: ch.topic,
+                    state: ch.state,
+                    postgresBindings: ch.bindings?.postgres_changes?.length || 0,
+                    tables: bindingTables[i] || []
+                  })),
+                  snapshotCounts: {
+                    members: Array.isArray(snapshot.members) ? snapshot.members.length : 0,
+                    periods: Array.isArray(snapshot.periods) ? snapshot.periods.length : 0,
+                    iuran: Array.isArray(snapshot.iuran) ? snapshot.iuran.length : 0,
+                    winners: winners.length,
+                    winnerPayments: Array.isArray(snapshot.winnerPayments)
+                      ? snapshot.winnerPayments.length
+                      : Array.isArray(snapshot.pembayaranPemenang)
+                        ? snapshot.pembayaranPemenang.length
+                        : 0
+                  },
+                  latestWinner: latest
+                    ? {
+                        id: latest.id ?? null,
+                        memberName: latest.anggota_nama ?? latest.member_name ?? latest.name ?? null,
+                        amount: Number(latest.nominal_dapat ?? latest.nominal ?? 0) || 0
+                      }
+                    : null
+                };
+              });
+
+              const publicWinnerDom = await page.evaluate(() => {
+                const section = document.querySelector("#aw-v121-public-winners-canonical");
+                const latest = section?.querySelector(".latest .name")?.textContent?.trim() || null;
+                const amount = section?.querySelector(".latest .amount")?.textContent?.trim() || null;
+                const rows = section
+                  ? [...section.querySelectorAll(".hist .row")].map(row => row.innerText.trim())
+                  : [];
+                return {
+                  sectionCount: document.querySelectorAll("#aw-v121-public-winners-canonical").length,
+                  latest,
+                  amount,
+                  rows
+                };
+              });
+
               // Wait for mobile winner history to move beside the finance summary and hide the legacy panel.
               if (name === 'mobile') {
                 await page.waitForFunction(() => {
@@ -184,7 +263,9 @@ jobs:
                 nanMatches,
                 rawIsoTimestampVisible,
                 publicRoute: publicUrl.toString(),
-                ...dimensions
+                ...dimensions,
+                realtimeAudit,
+                publicWinnerDom
               };
               summary.push(result);
               console.log(JSON.stringify(result, null, 2));
@@ -193,6 +274,29 @@ jobs:
               }
               if (!financeSectionVisible) {
                 throw new Error(`${name}: canonical public finance snapshot did not render (financeUnavailable=${financeUnavailable}, stillLoading=${stillLoading})`);
+              }
+              if (!realtimeAudit.financialReady || !realtimeAudit.canonicalReady) {
+                throw new Error(`${name}: public Realtime flags are not both ready: ${JSON.stringify({ financialReady: realtimeAudit.financialReady, canonicalReady: realtimeAudit.canonicalReady })}`);
+              }
+              const allTopicsJoined = realtimeAudit.channels.length >= 2 &&
+                realtimeAudit.channels.every(ch => ch.state === "joined");
+              if (!allTopicsJoined) {
+                throw new Error(`${name}: expected both public realtime channels to be joined: ${JSON.stringify(realtimeAudit.channels)}`);
+              }
+              const tables = realtimeAudit.channels.flatMap(ch => ch.tables);
+              for (const requiredTable of ["pemenang", "pembayaran_pemenang", "undian_live"]) {
+                if (!tables.includes(requiredTable)) {
+                  throw new Error(`${name}: missing realtime binding for public.${requiredTable}`);
+                }
+              }
+              if (!realtimeAudit.snapshotCounts.winners) {
+                throw new Error(`${name}: public snapshot contains no winners`);
+              }
+              if (!realtimeAudit.snapshotCounts.winnerPayments) {
+                throw new Error(`${name}: public snapshot contains no winner payment`);
+              }
+              if (!publicWinnerDom.latest || !publicWinnerDom.amount) {
+                throw new Error(`${name}: canonical public winner section is missing latest winner/amount`);
               }
               if (name === 'mobile' && canonicalWinnerSectionCount !== 1) {
                 throw new Error('Mobile canonical Supabase winner section did not render.');
