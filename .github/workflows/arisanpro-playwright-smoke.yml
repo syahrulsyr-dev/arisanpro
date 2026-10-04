@@ -103,6 +103,103 @@ jobs:
               }
               if (initialText.trim().length < 50) throw new Error(`${name}: page body is unexpectedly empty`);
 
+              // Deterministic draw-eligibility contract: read-only synthetic data.
+              // This catches period-ID aliases, previous winners, inactive members,
+              // partial payments, and the only-paid configuration without touching LIVE data.
+              const eligibilityAudit = await page.evaluate(() => {
+                const engine = window.__AW_FINANCIAL_ENGINE__;
+                if (!engine?.drawEligibleMembers || !engine?.periodEquivalent) {
+                  return { ok: false, error: "Financial Engine eligibility API unavailable" };
+                }
+                const periods = [
+                  { id: "periode-2026-1", bulan: 1, tahun: 2026, nominal: 100000, status: "open" },
+                  { id: "periode-2026-2", bulan: 2, tahun: 2026, nominal: 100000, status: "open" }
+                ];
+                const members = [
+                  { id: "m-a", nama: "A", statusAktif: true },
+                  { id: "m-b", nama: "B", statusAktif: true },
+                  { id: "m-c", nama: "C", statusAktif: true },
+                  { id: "m-d", nama: "D", statusAktif: true },
+                  { id: "m-x", nama: "X", statusAktif: false }
+                ];
+                const iuran = [
+                  ...["m-a","m-b","m-d"].map(id => ({
+                    id: `i-${id}-p1`, anggota_id: id, periode_id: "periode-2026-1",
+                    nominal: 100000, status: "lunas"
+                  })),
+                  { id: "i-m-c-p1", anggota_id: "m-c", periode_id: "periode-2026-1",
+                    nominal: 50000, status: "cicilan" },
+                  { id: "i-m-x-p1", anggota_id: "m-x", periode_id: "periode-2026-1",
+                    nominal: 100000, status: "lunas" }
+                ];
+                const settings = {
+                  jumlahPeriode: 2, pemenangPerPeriode: 2, hanyaLunasUndian: true, nominal: 100000
+                };
+                const base = { periods, members, iuran, winners: [], settings };
+
+                const paidEligible = engine.drawEligibleMembers(
+                  members, "periode-2026-1", [], base, true
+                ).map(x => x.id).sort();
+
+                const withAliasWinner = {
+                  ...base,
+                  winners: [{
+                    id: "w-alias",
+                    anggota_id: "m-a",
+                    periode_id: "periode_2026_1",
+                    nominal_dapat: 100000
+                  }]
+                };
+                const targetAfterAliasWinner = engine.drawEligibleMembers(
+                  members, "periode-2026-1", withAliasWinner.winners, withAliasWinner, true
+                ).map(x => x.id).sort();
+
+                const targetOne = engine.drawEligibleMembers(
+                  members, "periode-2026-1",
+                  [{id:"w1",anggota_id:"m-a",periode_id:"periode-2026-1",nominal_dapat:100000},
+                   {id:"w2",anggota_id:"m-b",periode_id:"periode-2026-1",nominal_dapat:100000}],
+                  {...base,winners:[
+                    {id:"w1",anggota_id:"m-a",periode_id:"periode-2026-1",nominal_dapat:100000},
+                    {id:"w2",anggota_id:"m-b",periode_id:"periode-2026-1",nominal_dapat:100000}
+                  ]}, true
+                ).map(x => x.id).sort();
+
+                const unpaidMode = engine.drawEligibleMembers(
+                  members, "periode-2026-1",
+                  [{id:"w1",anggota_id:"m-a",periode_id:"periode-2026-1",nominal_dapat:100000}],
+                  {...base,winners:[{id:"w1",anggota_id:"m-a",periode_id:"periode-2026-1",nominal_dapat:100000}]},
+                  false
+                ).map(x => x.id).sort();
+
+                return {
+                  ok: true,
+                  aliasEquivalent: engine.periodEquivalent("periode_2026_1","periode-2026-1",periods) === true,
+                  paidEligible,
+                  targetAfterAliasWinner,
+                  targetAfterTwoWinners: targetOne,
+                  unpaidMode
+                };
+              });
+              console.log(JSON.stringify({ eligibilityAudit }, null, 2));
+              if (!eligibilityAudit.ok) {
+                throw new Error(`Eligibility API unavailable: ${eligibilityAudit.error}`);
+              }
+              if (!eligibilityAudit.aliasEquivalent) {
+                throw new Error("Period ID alias equivalence is not recognized.");
+              }
+              if (JSON.stringify(eligibilityAudit.paidEligible) !== JSON.stringify(["m-a","m-b","m-d"])) {
+                throw new Error(`Paid eligibility contract failed: ${JSON.stringify(eligibilityAudit.paidEligible)}`);
+              }
+              if (JSON.stringify(eligibilityAudit.targetAfterAliasWinner) !== JSON.stringify(["m-b","m-d"])) {
+                throw new Error(`Alias winner is not counted/excluded correctly: ${JSON.stringify(eligibilityAudit.targetAfterAliasWinner)}`);
+              }
+              if (eligibilityAudit.targetAfterTwoWinners.length !== 0) {
+                throw new Error(`Winner target cap failed: ${JSON.stringify(eligibilityAudit.targetAfterTwoWinners)}`);
+              }
+              if (JSON.stringify(eligibilityAudit.unpaidMode) !== JSON.stringify(["m-b","m-c","m-d"])) {
+                throw new Error(`Configurable unpaid eligibility failed: ${JSON.stringify(eligibilityAudit.unpaidMode)}`);
+              }
+
               // Test this branch's checked-out index.html through a local static server.
               // Then open the actual public-link route; no admin login or mutation actions are triggered.
               const publicUrl = new URL(target);
