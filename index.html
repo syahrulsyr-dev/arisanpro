@@ -6884,14 +6884,17 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
 
   function setupUndian(root){
     if(!root)return;
-    // Legacy/diagnostic UI must never expose a "SQL Pembayaran" control
-    // inside the operational Undian page. Remove it by rendered text as well,
-    // so dynamically-mounted legacy controls are covered without touching draw logic.
+    // Legacy/diagnostic UI must never expose operationally irrelevant controls
+    // inside the Undian page. Remove only the rendered controls; draw state/logic
+    // remains untouched and canonical winner RPCs remain the source of truth.
     root.querySelectorAll('button,[role="button"]').forEach(b=>{
       const t=text(b);
       if(/SQL\s*Pembayaran|Pembayaran\s*SQL/i.test(t)){
         b.remove();
       }
+    });
+    root.querySelectorAll('label').forEach(l=>{
+      if(/Hanya lunas ikut undian/i.test(text(l))) l.remove();
     });
   }
 
