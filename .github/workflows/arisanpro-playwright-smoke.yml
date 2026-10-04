@@ -103,6 +103,43 @@ jobs:
               }
               if (initialText.trim().length < 50) throw new Error(`${name}: page body is unexpectedly empty`);
 
+              // Single-source winner-pot contract: auto and manual draw must use
+              // the same active-member base and exact integer remainder allocation.
+              const winnerPotAudit = await page.evaluate(() => {
+                const engine = window.__AW_FINANCIAL_ENGINE__;
+                const members = [
+                  { id: "p1", statusAktif: true },
+                  { id: "p2", statusAktif: true },
+                  { id: "p3", statusAktif: false },
+                  { id: "p4", status: true }
+                ];
+                const settings = { nominal: 100001 };
+                const a = engine?.drawPotAllocation?.(settings, members, 2, 0);
+                const b = engine?.drawPotAllocation?.(settings, members, 2, 1);
+                const c = engine?.drawPotAllocation?.(settings, members, 3, 0);
+                const d = engine?.drawPotAllocation?.(settings, members, 3, 1);
+                const e = engine?.drawPotAllocation?.(settings, members, 3, 2);
+                return {
+                  a, b, c, d, e,
+                  activeCount: engine?.drawPotMemberCount?.(members) ?? null,
+                  sum2: Number(a?.pot || 0) + Number(b?.pot || 0),
+                  sum3: Number(c?.pot || 0) + Number(d?.pot || 0) + Number(e?.pot || 0)
+                };
+              });
+              console.log(JSON.stringify({ winnerPotAudit }, null, 2));
+              if (winnerPotAudit.activeCount !== 3 ||
+                  winnerPotAudit.a?.pot !== 150002 ||
+                  winnerPotAudit.b?.pot !== 150001 ||
+                  winnerPotAudit.sum2 !== 300003) {
+                throw new Error(`Winner pot 2-slot allocation failed: ${JSON.stringify(winnerPotAudit)}`);
+              }
+              if (winnerPotAudit.c?.pot !== 100001 ||
+                  winnerPotAudit.d?.pot !== 100001 ||
+                  winnerPotAudit.e?.pot !== 100001 ||
+                  winnerPotAudit.sum3 !== 300003) {
+                throw new Error(`Winner pot 3-slot allocation failed: ${JSON.stringify(winnerPotAudit)}`);
+              }
+
               // Deterministic draw-eligibility contract: read-only synthetic data.
               // This catches period-ID aliases, previous winners, inactive members,
               // partial payments, and the only-paid configuration without touching LIVE data.
