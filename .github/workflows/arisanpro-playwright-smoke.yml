@@ -178,21 +178,6 @@ jobs:
                 };
               });
 
-              const publicWinnerDom = await page.evaluate(() => {
-                const section = document.querySelector("#aw-v121-public-winners-canonical");
-                const latest = section?.querySelector(".latest .name")?.textContent?.trim() || null;
-                const amount = section?.querySelector(".latest .amount")?.textContent?.trim() || null;
-                const rows = section
-                  ? [...section.querySelectorAll(".hist .row")].map(row => row.innerText.trim())
-                  : [];
-                return {
-                  sectionCount: document.querySelectorAll("#aw-v121-public-winners-canonical").length,
-                  latest,
-                  amount,
-                  rows
-                };
-              });
-
               // Wait for mobile winner history to move beside the finance summary and hide the legacy panel.
               if (name === 'mobile') {
                 await page.waitForFunction(() => {
@@ -209,6 +194,29 @@ jobs:
               } else {
                 await page.waitForTimeout(1000);
               }
+
+              // Desktop also needs to wait for the async canonical winner renderer.
+              await page.waitForFunction(() => {
+                const section = document.querySelector("#aw-v121-public-winners-canonical");
+                return !!section &&
+                  !!section.querySelector(".latest .name") &&
+                  !!section.querySelector(".latest .amount");
+              }, { timeout: 12000 }).catch(() => {});
+
+              const publicWinnerDom = await page.evaluate(() => {
+                const section = document.querySelector("#aw-v121-public-winners-canonical");
+                const latest = section?.querySelector(".latest .name")?.textContent?.trim() || null;
+                const amount = section?.querySelector(".latest .amount")?.textContent?.trim() || null;
+                const rows = section
+                  ? [...section.querySelectorAll(".hist .row")].map(row => row.innerText.trim())
+                  : [];
+                return {
+                  sectionCount: document.querySelectorAll("#aw-v121-public-winners-canonical").length,
+                  latest,
+                  amount,
+                  rows
+                };
+              });
 
               const publicText = await page.locator('body').innerText().catch(() => '');
               const loginHeadingVisible = await page.getByRole('heading', {
