@@ -1,0 +1,250 @@
+name: ArisanPro Playwright Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test/playwright-smoke-v10
+    paths:
+      - .github/workflows/arisanpro-playwright-smoke.yml
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Test branch build and public view on desktop/mobile
+        run: |
+          mkdir -p test-results
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/arisanpro-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:4173/ > /dev/null || { cat /tmp/arisanpro-http.log; exit 1; }
+          cat > smoke-test.cjs <<'NODE'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const errors = [];
+            const summary = [];
+            const target = 'http://127.0.0.1:4173/';
+
+            async function inspect(name, viewport) {
+              const context = await browser.newContext({ viewport });
+              const page = await context.newPage();
+              let phase = 'initial';
+              page.on('pageerror', error => errors.push({
+                type: 'pageerror', viewport: name, phase, message: error.message
+              }));
+              page.on('console', message => {
+                if (message.type() === 'error') errors.push({
+                  type: 'console-error',
+                  viewport: name,
+                  phase,
+                  message: message.text(),
+                  location: message.location()
+                });
+              });
+              page.on('response', response => {
+                if (response.status() >= 400) {
+                  errors.push({
+                    type: 'http-response-error',
+                    viewport: name,
+                    phase,
+                    status: response.status(),
+                    url: response.url(),
+                    method: response.request().method(),
+                    resourceType: response.request().resourceType()
+                  });
+                }
+              });
+
+              const response = await page.goto(target, {
+                waitUntil: 'domcontentloaded', timeout: 60000
+              });
+              await page.waitForTimeout(5000);
+              const title = await page.title();
+              const initialText = await page.locator('body').innerText().catch(() => '');
+              await page.screenshot({
+                path: `test-results/${name}-login.png`,
+                fullPage: true, animations: 'disabled'
+              });
+
+              if (!response || !response.ok()) throw new Error(`${name}: HTTP response is not OK`);
+              if (!/ArisanPro/i.test(title) && !/ArisanPro/i.test(initialText)) {
+                throw new Error(`${name}: page does not appear to be ArisanPro`);
+              }
+              if (initialText.trim().length < 50) throw new Error(`${name}: page body is unexpectedly empty`);
+
+              // Test this branch's checked-out index.html through a local static server.
+              // Then open the actual public-link route; no admin login or mutation actions are triggered.
+              const publicUrl = new URL(target);
+              publicUrl.searchParams.set('view', 'public');
+              phase = 'public-route';
+              const publicResponse = await page.goto(publicUrl.toString(), {
+                waitUntil: 'domcontentloaded', timeout: 60000
+              });
+              try {
+                await page.waitForFunction(() =>
+                  !!document.querySelector('#aw-public-finance') ||
+                  /Data Keuangan Belum Tersedia/i.test(document.body?.innerText || ''),
+                  { timeout: 20000 }
+                );
+              } catch {
+                // Continue to capture diagnostics and screenshot before marking the readiness check failed.
+              }
+              // Wait for mobile winner history to move beside the finance summary and hide the legacy panel.
+              if (name === 'mobile') {
+                await page.waitForFunction(() => {
+                  const finance = document.querySelector('#aw-public-finance');
+                  const winners = document.querySelector('#aw-v121-public-winners-canonical');
+                  const legacy = Array.from(document.querySelectorAll('#root h3'))
+                    .find(h => /Pemenang Terbaru\s*&\s*Riwayat/i.test(h.textContent || ''));
+                  const legacyHidden = !legacy || !legacy.parentElement ||
+                    legacy.parentElement.hidden || getComputedStyle(legacy.parentElement).display === 'none';
+                  return !!finance && !!winners &&
+                    finance.parentElement === winners.parentElement &&
+                    finance.nextElementSibling === winners && legacyHidden;
+                }, { timeout: 12000 }).catch(() => {});
+              } else {
+                await page.waitForTimeout(1000);
+              }
+
+              const publicText = await page.locator('body').innerText().catch(() => '');
+              const loginHeadingVisible = await page.getByRole('heading', {
+                name: /Masuk sebagai Pengelola/i
+              }).isVisible().catch(() => false);
+              const financeSectionVisible = await page.locator('#aw-public-finance').count() > 0;
+              const canonicalWinnerSectionCount = await page.locator('#aw-v121-public-winners-canonical').count();
+              const canonicalWinnerSectionPosition = await page.evaluate(() => {
+                const finance = document.querySelector('#aw-public-finance');
+                const winners = document.querySelector('#aw-v121-public-winners-canonical');
+                return !!finance && !!winners && finance.parentElement === winners.parentElement && finance.nextElementSibling === winners;
+              });
+              const legacyWinnerHeadingVisible = await page.locator('#root h3')
+                .filter({ hasText: /Pemenang Terbaru\s*&\s*Riwayat/i })
+                .first().isVisible().catch(() => false);
+              const financeUnavailable = /Data Keuangan Belum Tersedia/i.test(publicText);
+              const stillLoading = /Memuat data warga/i.test(publicText);
+              const nanMatches = publicText.match(/\bNaN\b|Rp\s*NaN/gi) || [];
+              const visibleNaN = nanMatches.length > 0;
+              const rawIsoTimestampVisible = /\b20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(publicText);
+              const dimensions = await page.evaluate(() => ({
+                viewportWidth: window.innerWidth,
+                documentClientWidth: document.documentElement.clientWidth,
+                documentScrollWidth: document.documentElement.scrollWidth,
+                horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+                bodyScrollHeight: document.body.scrollHeight
+              }));
+
+              await page.screenshot({
+                path: `test-results/${name}-public.png`,
+                fullPage: true, animations: 'disabled'
+              });
+
+              const result = {
+                viewport: name,
+                url: page.url(),
+                httpStatus: response.status(),
+                publicHttpStatus: publicResponse ? publicResponse.status() : null,
+                title,
+                initialTextLength: initialText.length,
+                initialTextPreview: initialText.slice(0, 500),
+                publicTextLength: publicText.length,
+                publicTextPreview: publicText.slice(0, 1000),
+                loginHeadingVisibleAfterPublicRoute: loginHeadingVisible,
+                financeSectionVisible,
+                canonicalWinnerSectionCount,
+                canonicalWinnerSectionPosition,
+                legacyWinnerHeadingVisible,
+                financeUnavailable,
+                stillLoading,
+                visibleNaN,
+                nanMatches,
+                rawIsoTimestampVisible,
+                publicRoute: publicUrl.toString(),
+                ...dimensions
+              };
+              summary.push(result);
+              console.log(JSON.stringify(result, null, 2));
+              if (!publicResponse || !publicResponse.ok()) {
+                throw new Error(`${name}: public route HTTP response is not OK`);
+              }
+              if (!financeSectionVisible) {
+                throw new Error(`${name}: canonical public finance snapshot did not render (financeUnavailable=${financeUnavailable}, stillLoading=${stillLoading})`);
+              }
+              if (name === 'mobile' && canonicalWinnerSectionCount !== 1) {
+                throw new Error('Mobile canonical Supabase winner section did not render.');
+              }
+              if (name === 'mobile' && !canonicalWinnerSectionPosition) {
+                throw new Error('Mobile canonical winner section is not positioned next to the finance summary.');
+              }
+              if (name === 'mobile' && legacyWinnerHeadingVisible) {
+                throw new Error('Mobile still displays the duplicate legacy winner-history panel.');
+              }
+              await context.close();
+            }
+
+            try {
+              await inspect('desktop', { width: 1440, height: 1000 });
+              await inspect('mobile', { width: 390, height: 844 });
+              if (summary.some(result => result.visibleNaN)) {
+                throw new Error('Public view displays NaN in visible text; inspect winner/amount formatting.');
+              }
+              if (summary.some(result => result.rawIsoTimestampVisible)) {
+                throw new Error('Public view displays a raw ISO timestamp instead of a formatted date.');
+              }
+              const periodRestErrors = errors.filter(error =>
+                error.type === 'http-response-error' &&
+                Number(error.status) >= 400 &&
+                /\/rest\/v1\/periode(?:\?|$)/i.test(error.url || '')
+              );
+              if (periodRestErrors.length) {
+                throw new Error('Supabase periode REST request failed: ' +
+                  JSON.stringify(periodRestErrors.map(error => ({
+                    status: error.status, method: error.method, url: error.url
+                  })))
+                );
+              }
+            } finally {
+              fs.writeFileSync('test-results/browser-errors.json', JSON.stringify(errors, null, 2));
+              fs.writeFileSync('test-results/test-summary.json', JSON.stringify(summary, null, 2));
+              await browser.close();
+            }
+            console.log('Smoke and public-view checks completed. Review screenshots, overflow measurements, and browser errors.');
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+          node smoke-test.cjs
+
+      - name: Upload screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arisanpro-playwright-smoke-results
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7
