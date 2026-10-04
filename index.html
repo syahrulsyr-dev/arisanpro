@@ -5691,7 +5691,8 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
     body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="laporan"]>*{min-width:0!important;max-width:100%!important;box-sizing:border-box!important;}
   }
   @media(max-width:390px){
-    body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3{grid-template-columns:1fr!important;}
+    /* Keep member cards side-by-side even on the narrowest supported mobile viewport. */
+    body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .grid.md\:grid-cols-2.xl\:grid-cols-3{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
     body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-actions{grid-template-columns:1fr!important;}
     body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-summary{grid-template-columns:1fr 1fr!important;}
   }
