@@ -114,8 +114,22 @@ jobs:
               } catch {
                 // Continue to capture diagnostics and screenshot before marking the readiness check failed.
               }
-              // Allow the mobile winner loader/realtime refresh to finish rendering.
-              await page.waitForTimeout(2500);
+              // Wait for mobile winner history to move beside the finance summary and hide the legacy panel.
+              if (name === 'mobile') {
+                await page.waitForFunction(() => {
+                  const finance = document.querySelector('#aw-public-finance');
+                  const winners = document.querySelector('#aw-v121-public-winners-canonical');
+                  const legacy = Array.from(document.querySelectorAll('#root h3'))
+                    .find(h => /Pemenang Terbaru\s*&\s*Riwayat/i.test(h.textContent || ''));
+                  const legacyHidden = !legacy || !legacy.parentElement ||
+                    legacy.parentElement.hidden || getComputedStyle(legacy.parentElement).display === 'none';
+                  return !!finance && !!winners &&
+                    finance.parentElement === winners.parentElement &&
+                    finance.nextElementSibling === winners && legacyHidden;
+                }, { timeout: 12000 }).catch(() => {});
+              } else {
+                await page.waitForTimeout(1000);
+              }
 
               const publicText = await page.locator('body').innerText().catch(() => '');
               const loginHeadingVisible = await page.getByRole('heading', {
