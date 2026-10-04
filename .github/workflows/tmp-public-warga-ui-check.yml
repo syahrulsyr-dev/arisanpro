@@ -88,6 +88,7 @@ jobs:
                   existsSmall:!!oldSmall,
                   rootScroll:Math.max(document.documentElement.scrollWidth,document.body.scrollWidth)-document.documentElement.clientWidth,
                   canonicalOverflow:canonical?canonical.scrollWidth-canonical.clientWidth:9999,
+                  statsCount:stats.length,
                   statsWidths:stats.map(x=>x.getBoundingClientRect().width),
                   contentCols:getComputedStyle(root.querySelector('.p-6.grid.md\\:grid-cols-2')).gridTemplateColumns
                 };
@@ -100,7 +101,7 @@ jobs:
               if(out.smallOverlayDisplay!=='removed' || out.existsSmall) throw new Error('legacy small overlay visible/existing @ '+width);
               if(out.rootScroll>0 || out.canonicalOverflow>0) throw new Error('horizontal overflow @ '+width);
               if(out.canonicalWidth<=0) throw new Error('canonical winners width zero @ '+width);
-              if(width<768 && stats.length!==4) throw new Error('stats not rendered @ '+width);
+              if(width<768 && out.statsCount!==4) throw new Error('stats not rendered @ '+width);
             }
             await browser.close();
           })();
