@@ -1,0 +1,80 @@
+name: Temp Iuran R3 Verification
+on:
+  push:
+    branches:
+      - fix/iuran-tab-working-r3
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Verify Tab Iuran
+        run: |
+          mkdir -p test-results
+          node <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('index.html','utf8');
+          if(!html.includes('window.__arisanUiActions?.openPayment()')) throw new Error('Correct payment action hook missing');
+          if(html.includes('window.__arisanUI?.openPayment')) throw new Error('Old incorrect payment hook still present');
+          if(!html.includes('id="aw-v121-iuran-r3-final"')) throw new Error('R3 final CSS missing');
+          const scripts=[...html.matchAll(/<script(?:[^>]*)>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(Boolean);
+          fs.mkdirSync('/tmp/scripts',{recursive:true});
+          for(let i=0;i<scripts.length;i++){const p='/tmp/scripts/'+i+'.js';fs.writeFileSync(p,scripts[i]);}
+          fs.writeFileSync('test-results/static.json',JSON.stringify({scriptCount:scripts.length,correctHook:true,noOldHook:true},null,2));
+          NODE
+          cat > verify.cjs <<'NODE'
+          const {chromium}=require('playwright');
+          const fs=require('fs');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const results=[];
+            for(const v of [{name:'390',width:390,height:844},{name:'430',width:430,height:932},{name:'1440',width:1440,height:1000}]){
+              const page=await browser.newPage({viewport:{width:v.width,height:v.height}});
+              await page.goto('file://'+process.cwd()+'/index.html',{waitUntil:'domcontentloaded'});
+              const r=await page.evaluate(()=>{
+                document.body.className='aw-authenticated';
+                const root=document.getElementById('root')||document.body;
+                const main=document.createElement('main');
+                main.setAttribute('data-aw-page','iuran');
+                main.innerHTML='<div class="aw-v121-iuran-action-row"><button class="aw-v121-iuran-add-btn">➕ Catat Iuran</button></div><div class="aw-v121-matrix-scroll"><table><thead><tr><th>Anggota / Periode</th>'+Array.from({length:6},(_,i)=>'<th>Periode '+(i+1)+'</th>').join('')+'</tr></thead><tbody>'+Array.from({length:35},()=>'<tr><td>Warga RT 05</td>'+Array.from({length:6},()=>'<td>Lunas</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+                root.appendChild(main);
+                const m=main.querySelector('.aw-v121-matrix-scroll');
+                const b=main.querySelector('.aw-v121-iuran-add-btn');
+                const th=m.querySelector('thead th');
+                const td=m.querySelector('tbody td');
+                const cm=getComputedStyle(m),cb=getComputedStyle(b),cth=getComputedStyle(th),ctd=getComputedStyle(td);
+                const before=m.scrollTop;
+                m.scrollTop=160;
+                return {buttonW:Math.round(b.getBoundingClientRect().width),buttonH:Math.round(b.getBoundingClientRect().height),matrixW:Math.round(m.getBoundingClientRect().width),matrixH:Math.round(m.getBoundingClientRect().height),scrollHeight:m.scrollHeight,clientHeight:m.clientHeight,scrollBefore:before,scrollAfter:m.scrollTop,overflowY:cm.overflowY,overflowX:cm.overflowX,touchAction:cm.touchAction,thead:cth.position,firstCol:ctd.position,docOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1};
+              });
+              console.log(v.name,JSON.stringify(r));
+              if(r.buttonW<=0||r.buttonH<=0) throw new Error('Catat Iuran button not rendered at '+v.name);
+              if(r.overflowY!=='auto'||r.overflowX!=='auto') throw new Error('Nested matrix overflow not enabled at '+v.name);
+              if(r.scrollHeight<=r.clientHeight||r.scrollAfter<=0) throw new Error('Matrix did not scroll vertically at '+v.name);
+              if(r.thead!=='sticky'||r.firstCol!=='sticky') throw new Error('Sticky header/first column broken at '+v.name);
+              if(r.docOverflow) throw new Error('Document horizontal overflow at '+v.name);
+              results.push({viewport:v.name,...r});
+            }
+            fs.writeFileSync('test-results/runtime.json',JSON.stringify(results,null,2));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+          node verify.cjs
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: temp-iuran-r3-verification
+          path: test-results/
+          retention-days: 3
