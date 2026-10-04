@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - fix/member-card-responsive-r2
+  pull_request:
+    branches:
+      - main
 
 jobs:
   member-card-ui:
