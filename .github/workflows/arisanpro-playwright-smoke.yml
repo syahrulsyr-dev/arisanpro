@@ -135,6 +135,7 @@ jobs:
               const stillLoading = /Memuat data warga/i.test(publicText);
               const nanMatches = publicText.match(/\bNaN\b|Rp\s*NaN/gi) || [];
               const visibleNaN = nanMatches.length > 0;
+              const rawIsoTimestampVisible = /\b20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(publicText);
               const dimensions = await page.evaluate(() => ({
                 viewportWidth: window.innerWidth,
                 documentClientWidth: document.documentElement.clientWidth,
@@ -167,6 +168,7 @@ jobs:
                 stillLoading,
                 visibleNaN,
                 nanMatches,
+                rawIsoTimestampVisible,
                 publicRoute: publicUrl.toString(),
                 ...dimensions
               };
@@ -195,6 +197,9 @@ jobs:
               await inspect('mobile', { width: 390, height: 844 });
               if (summary.some(result => result.visibleNaN)) {
                 throw new Error('Public view displays NaN in visible text; inspect winner/amount formatting.');
+              }
+              if (summary.some(result => result.rawIsoTimestampVisible)) {
+                throw new Error('Public view displays a raw ISO timestamp instead of a formatted date.');
               }
               const periodRestErrors = errors.filter(error =>
                 error.type === 'http-response-error' &&
