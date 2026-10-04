@@ -790,104 +790,7 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] 
   }
 }
 </style>
-<style id="aw-mobile-member-cards-fix">
-/* Mobile UI — compact member cards, side-by-side without changing member logic. */
-@media (max-width: 767px){
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact{
-    display:grid!important;
-    grid-template-columns:repeat(2,minmax(0,1fr))!important;
-    gap:10px!important;
-    width:100%!important;
-    min-width:0!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div{
-    min-width:0!important;
-    width:100%!important;
-    padding:11px!important;
-    border-radius:14px!important;
-    overflow:hidden!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:first-child{
-    gap:7px!important;
-    flex-wrap:nowrap!important;
-    align-items:flex-start!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:first-child>div:first-child{
-    min-width:0!important;
-    gap:7px!important;
-    flex:1 1 auto!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:first-child>div:first-child>div:first-child{
-    width:34px!important;
-    height:34px!important;
-    min-width:34px!important;
-    border-radius:11px!important;
-    font-size:11px!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:first-child>div:first-child>div:nth-child(2){
-    min-width:0!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:first-child>div:first-child>div:nth-child(2)>div{
-    max-width:100%!important;
-    overflow:hidden!important;
-    text-overflow:ellipsis!important;
-    white-space:nowrap!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:first-child>div:first-child>div:nth-child(2)>div:first-child{
-    font-size:11px!important;
-    line-height:1.25!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:first-child>div:first-child>div:nth-child(2)>div:nth-child(2),
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:first-child>div:first-child>div:nth-child(2)>div:nth-child(3){
-    font-size:9px!important;
-    line-height:1.25!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:first-child>div:last-child{
-    flex:0 0 auto!important;
-    gap:3px!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:first-child>div:last-child button{
-    width:27px!important;
-    height:27px!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:nth-child(2){
-    margin-top:9px!important;
-    grid-template-columns:repeat(3,minmax(0,1fr))!important;
-    gap:5px!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:nth-child(2)>div{
-    min-width:0!important;
-    padding:7px 4px!important;
-    border-radius:9px!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:nth-child(2) .text-\[10px\]{
-    font-size:8px!important;
-    line-height:1.15!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:nth-child(2) .font-bold.text-sm{
-    font-size:10px!important;
-    line-height:1.2!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:nth-child(2) .font-bold.text-xs{
-    font-size:9px!important;
-    line-height:1.2!important;
-  }
-}
-@media (max-width: 390px){
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact{
-    gap:8px!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div{
-    padding:9px!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:first-child>div:first-child>div:first-child{
-    width:30px!important;height:30px!important;min-width:30px!important;border-radius:10px!important;
-  }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .aw-v121-member-grid-compact>div>div:first-child>div:first-child>div:nth-child(2)>div:first-child{
-    font-size:10px!important;
-  }
-}
-</style>
+
 </head>
 <body>
 <style id="aw-finance-redesign-css">
@@ -7376,6 +7279,51 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .aw-
   body.aw-authenticated:not(.aw-public-live) #aw-fin-content .al-table-wrap{
     max-height:300px!important;
     overflow:auto!important;
+  }
+}
+</style>
+<style id="aw-mobile-chart-final-owner">
+/* Final mobile chart owner — override the older 46px reconstruction. */
+@media(max-width:767px){
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .flex.items-end.gap-2.h-\[160px\]{
+    width:100%!important;max-width:100%!important;min-width:0!important;
+    height:210px!important;max-height:210px!important;
+    display:flex!important;align-items:flex-end!important;gap:10px!important;
+    overflow-x:auto!important;overflow-y:hidden!important;
+    padding:6px 6px 8px!important;box-sizing:border-box!important;
+    -webkit-overflow-scrolling:touch!important;overscroll-behavior-x:contain!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .flex.items-end.gap-2.h-\[160px\]>*{
+    flex:0 0 78px!important;width:78px!important;min-width:78px!important;max-width:78px!important;
+    height:196px!important;gap:5px!important;align-items:center!important;box-sizing:border-box!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .flex.items-end.gap-2.h-\[160px\]>*>div:first-child{
+    width:30px!important;max-width:30px!important;height:122px!important;min-height:2px!important;
+    border-radius:10px!important;flex:0 0 auto!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .flex.items-end.gap-2.h-\[160px\]>*>div:nth-child(2){
+    width:78px!important;max-width:78px!important;height:22px!important;min-height:22px!important;
+    font-size:10.5px!important;line-height:1.15!important;font-weight:600!important;
+    white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;
+    text-align:center!important;flex:0 0 auto!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .flex.items-end.gap-2.h-\[160px\]>*>div:last-child{
+    width:78px!important;max-width:78px!important;min-height:24px!important;
+    font-size:9px!important;line-height:1.15!important;
+    white-space:nowrap!important;overflow:visible!important;text-align:center!important;
+    flex:0 0 auto!important;
+  }
+}
+@media(max-width:390px){
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .flex.items-end.gap-2.h-\[160px\]>*{
+    flex-basis:74px!important;width:74px!important;min-width:74px!important;max-width:74px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .flex.items-end.gap-2.h-\[160px\]>*>div:first-child{
+    width:28px!important;max-width:28px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .flex.items-end.gap-2.h-\[160px\]>*>div:nth-child(2),
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .flex.items-end.gap-2.h-\[160px\]>*>div:last-child{
+    width:74px!important;max-width:74px!important;
   }
 }
 </style>
