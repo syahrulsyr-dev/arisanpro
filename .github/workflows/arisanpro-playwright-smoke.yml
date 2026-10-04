@@ -29,17 +29,9 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
-      - name: Test branch build and public view on desktop/mobile
+      - name: Smoke-test deployed production public view on desktop/mobile
         run: |
           mkdir -p test-results
-          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/arisanpro-http.log 2>&1 &
-          SERVER_PID=$!
-          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
-          for attempt in $(seq 1 30); do
-            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
-            sleep 1
-          done
-          curl --silent --fail http://127.0.0.1:4173/ > /dev/null || { cat /tmp/arisanpro-http.log; exit 1; }
           cat > smoke-test.cjs <<'NODE'
           const { chromium } = require('playwright');
           const fs = require('fs');
@@ -48,7 +40,7 @@ jobs:
             const browser = await chromium.launch({ headless: true });
             const errors = [];
             const summary = [];
-            const target = 'http://127.0.0.1:4173/';
+            const target = 'https://syahrulsyr-dev.github.io/arisanpro/';
 
             async function inspect(name, viewport) {
               const context = await browser.newContext({ viewport });
@@ -97,8 +89,8 @@ jobs:
               }
               if (initialText.trim().length < 50) throw new Error(`${name}: page body is unexpectedly empty`);
 
-              // Test this branch's checked-out index.html through a local static server.
-              // Then open the actual public-link route; no admin login or mutation actions are triggered.
+              // Test the deployed production URL and its actual public-link route.
+              // Read-only only: no admin login or mutation actions are triggered.
               const publicUrl = new URL(target);
               publicUrl.searchParams.set('view', 'public');
               phase = 'public-route';
