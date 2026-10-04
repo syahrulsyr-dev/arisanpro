@@ -3822,10 +3822,37 @@ async function getOptionalAll(table,select="*",order=""){
  * Perbedaan mode hanya pada otorisasi/kemampuan mutasi; Public tetap read-only.
  */
 async function loadCanonicalFinanceSnapshot(){
-  const [iuran,periods,members,extra,expenses,winners,winnerPayments,settingsRows,refunds,credits]=await Promise.all([
-    getAll('iuran'),getAll('periode'),getAll('anggota'),getAll('pemasukan_lain'),
-    getAll('pengeluaran'),getAll('pemenang'),getOptionalAll('pembayaran_pemenang'),
-    getAll('settings'),getOptionalAll('iuran_refund'),getOptionalAll('iuran_kredit')
+  /*
+   * V22.5.96 PUBLIC RESILIENCE:
+   * Data inti warga tetap wajib (anggota/periode/iuran/pemenang).
+   * Tabel finansial tambahan bersifat best-effort agar satu policy/RLS yang belum
+   * terbuka tidak menjatuhkan seluruh Link Warga ke state "Gagal memuat data warga".
+   */
+  async function optionalPublicTable(table,select='*',order=''){
+    try{
+      return await getAll(table,select,order);
+    }catch(e){
+      console.warn('⚠️ V22.5.96 PUBLIC OPTIONAL TABLE unavailable:',table,e?.message||e);
+      return [];
+    }
+  }
+  let iuran,periods,members,winners;
+  try{
+    [iuran,periods,members,winners]=await Promise.all([
+      getAll('iuran'),getAll('periode'),getAll('anggota'),getAll('pemenang')
+    ]);
+  }catch(e){
+    const msg=String(e?.message||e||'Public core dataset gagal dibaca');
+    throw new Error('Data inti public gagal dibaca: '+msg);
+  }
+
+  const [extra,expenses,winnerPayments,settingsRows,refunds,credits]=await Promise.all([
+    optionalPublicTable('pemasukan_lain'),
+    optionalPublicTable('pengeluaran'),
+    optionalPublicTable('pembayaran_pemenang'),
+    optionalPublicTable('settings'),
+    optionalPublicTable('iuran_refund'),
+    optionalPublicTable('iuran_kredit')
   ]);
 
   const settings=settingsRows?.find(x=>String(x.id)==='main')||settingsRows?.[0]||{};
