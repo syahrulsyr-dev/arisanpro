@@ -135,7 +135,7 @@ jobs:
                 const settings = {
                   jumlahPeriode: 2, pemenangPerPeriode: 2, hanyaLunasUndian: true, nominal: 100000
                 };
-                const base = { periods, members, iuran, winners: [], settings };
+                const base = { periods, members, iurans: iuran, winners: [], settings };
 
                 const paidEligible = engine.drawEligibleMembers(
                   members, "periode-2026-1", [], base, true
