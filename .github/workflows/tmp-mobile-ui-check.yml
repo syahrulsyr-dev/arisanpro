@@ -1,0 +1,87 @@
+name: Temporary Mobile UI Branch Check
+
+on:
+  push:
+    branches:
+      - fix/mobile-dashboard-ui
+    paths:
+      - .github/workflows/tmp-mobile-ui-check.yml
+      - index.html
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Verify mobile CSS from checked-out branch
+        run: |
+          python3 -m http.server 4174 --bind 127.0.0.1 > /tmp/http.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+            const context = await browser.newContext({viewport:{width:390,height:844}});
+            const page = await context.newPage();
+            await page.goto('http://127.0.0.1:4174/', {waitUntil:'domcontentloaded'});
+            await page.evaluate(() => {
+              document.body.classList.add('aw-authenticated');
+              document.body.innerHTML = `
+                <main data-aw-page="dashboard">
+                  <div class="flex items-end gap-2 h-[160px]">
+                    <div><div></div><div>Sep 2026</div><div>26/26</div></div>
+                    <div><div></div><div>Okt 2026</div><div>25/26</div></div>
+                    <div><div></div><div>Nov 2026</div><div>24/26</div></div>
+                  </div>
+                </main>
+                <main data-aw-page="anggota">
+                  <div class="grid md:grid-cols-2 xl:grid-cols-3">
+                    <div><div class="text-sm">Anggota Satu</div><div class="text-xs">0812</div><div class="w-9" style="height:28px"></div></div>
+                    <div><div class="text-sm">Anggota Dua</div><div class="text-xs">0813</div><div class="w-9" style="height:28px"></div></div>
+                  </div>
+                </main>
+              `;
+            });
+            const result = await page.evaluate(() => {
+              const chart = document.querySelector('main[data-aw-page="dashboard"] .flex.items-end.gap-2.h-\\[160px\\]');
+              const first = chart.children[0];
+              const label = first.children[1];
+              const bar = first.children[0];
+              const memberGrid = document.querySelector('main[data-aw-page="anggota"] .grid.md\\:grid-cols-2.xl\\:grid-cols-3');
+              const card = memberGrid.children[0];
+              const name = card.querySelector('.text-sm');
+              const detail = card.querySelector('.text-xs');
+              const cs = el => { const s=getComputedStyle(el); return {width:s.width,height:s.height,fontSize:s.fontSize,display:s.display,overflowX:s.overflowX}; };
+              return {
+                viewport:window.innerWidth,
+                chart:cs(chart), chartItem:cs(first), bar:cs(bar), label:cs(label),
+                memberGrid:{...cs(memberGrid),columns:getComputedStyle(memberGrid).gridTemplateColumns},
+                memberCard:cs(card), memberName:cs(name), memberDetail:cs(detail),
+                overflow:{width:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth,hasHorizontalOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1},
+                sqlLegacy:document.body.innerText.includes('SQL Pembayaran Pemenang')
+              };
+            });
+            console.log(JSON.stringify(result,null,2));
+            if(result.label.fontSize!=='9.5px')throw new Error('Chart label font mismatch: '+result.label.fontSize);
+            if(result.chartItem.width!=='46px')throw new Error('Chart column width mismatch: '+result.chartItem.width);
+            if(result.bar.width!=='18px')throw new Error('Chart bar width mismatch: '+result.bar.width);
+            if(!result.memberGrid.columns.includes('1fr'))throw new Error('Member grid is not two-column.');
+            if(result.memberName.fontSize!=='12px')throw new Error('Member name font mismatch: '+result.memberName.fontSize);
+            if(result.memberDetail.fontSize!=='9.5px')throw new Error('Member detail font mismatch: '+result.memberDetail.fontSize);
+            if(result.overflow.hasHorizontalOverflow)throw new Error('Page-level horizontal overflow detected.');
+            if(result.sqlLegacy)throw new Error('Legacy SQL Pembayaran Pemenang text still visible.');
+            await context.close(); await browser.close();
+          })().catch(err=>{console.error(err);process.exit(1);});
+          NODE
