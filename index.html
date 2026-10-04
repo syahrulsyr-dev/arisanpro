@@ -1437,7 +1437,10 @@ window.__AW_FINANCIAL_ENGINE__=(()=>{
     if(!target)return [];
     const targetSeq=typeof window.__AW_PERIOD_SEQUENCE__==='function'?window.__AW_PERIOD_SEQUENCE__(target,effective,settings):{cycle:0,seq:effective.indexOf(target),effectiveCount:effective.length};
     const targetCount=typeof window.__AW_PERIOD_WINNER_TARGET__==='function'?window.__AW_PERIOD_WINNER_TARGET__(target,effective,settings):1;
-    const existingTargetWinners=ws.filter(w=>id(w?.periode_id??w?.periodId)===id(target.id));
+    const existingTargetWinners=ws.filter(w=>{
+      const wid=w?.periode_id??w?.periodId??w?.period_id;
+      return id(wid)===id(target.id)||periodEquivalent(wid,target.id,effective);
+    });
     if(existingTargetWinners.length>=targetCount)return [];
     const wonBy=new Set();
     for(const w of ws){
@@ -1448,7 +1451,7 @@ window.__AW_FINANCIAL_ENGINE__=(()=>{
     }
     return list.filter(m=>m?.statusAktif!==false&&status(m?.status)!=='nonaktif'&&status(m?.status)!=='inactive'&&!wonBy.has(id(m?.id))&&(!onlyPaid||memberPeriodStatus(m?.id,target.id,source).kind==='paid'));
   };
-return Object.freeze({num,periodNom,paymentNom,resolveCurrentPeriod,calculate,buildViewModel,canonicalSnapshot,canonicalStatus,canonicalSummary,canonicalMemberPeriod,memberPeriodStatus,memberPeriodSummary,paymentShortfall,availableCredit,availableRefund,winnerPaymentStatus,periodLifecycle,nextPeriod,drawEligibleMembers,periodWinnerTarget:window.__AW_PERIOD_WINNER_TARGET__});
+return Object.freeze({num,periodNom,paymentNom,resolveCurrentPeriod,calculate,buildViewModel,canonicalSnapshot,canonicalStatus,canonicalSummary,canonicalMemberPeriod,memberPeriodStatus,memberPeriodSummary,paymentShortfall,availableCredit,availableRefund,winnerPaymentStatus,periodLifecycle,nextPeriod,periodEquivalent,drawEligibleMembers,periodWinnerTarget:window.__AW_PERIOD_WINNER_TARGET__});
 })();
 
 // V22.5.67 — current-period first-not-completed diagnostic. Read-only.
@@ -1964,7 +1967,12 @@ function ud(){let[e,n]=N.useState(null),[t,l]=N.useState({u:"",p:""}),[r,u]=N.us
  if(!drawPeriodId){alert("Periode undian belum tersedia");return}
  const engine=window.__AW_FINANCIAL_ENGINE__,snapshot=cn.snapshot?.data||cn.snapshot||{},settings=a||{};
  const targetCount=engine?.periodWinnerTarget?engine.periodWinnerTarget(drawPeriod,awOrderedPeriods,settings):(typeof window.__AW_PERIOD_WINNER_TARGET__==='function'?window.__AW_PERIOD_WINNER_TARGET__(drawPeriod,awOrderedPeriods,settings):1);
- const existingCount=G.filter(o=>String(o.periodId??o.periode_id??o.period_id)===String(drawPeriodId)).length;
+ const sameDrawPeriod=(o)=>{
+   const pid=o?.periodId??o?.periode_id??o?.period_id;
+   return String(pid??'')===String(drawPeriodId) ||
+     !!engine?.periodEquivalent?.(pid,drawPeriodId,awOrderedPeriods);
+ };
+ const existingCount=G.filter(sameDrawPeriod).length;
  if(existingCount>=targetCount){alert(`Periode ini sudah mencapai ${targetCount} pemenang.`);return}
  if(We.length===0){alert("Tidak ada kandidat eligible untuk periode berjalan");return}
  let h=awOrderedPeriods.find(O=>O.id===drawPeriodId)?.label||window.__AW_CANONICAL_PERIOD_LABEL__?.(drawPeriod)||drawPeriodId;
