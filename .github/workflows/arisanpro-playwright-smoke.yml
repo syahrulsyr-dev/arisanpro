@@ -8,6 +8,7 @@ on:
       - .github/workflows/arisanpro-playwright-smoke.yml
   push:
     branches:
+      - main
       - test/playwright-smoke-v10
       - test/public-realtime-verification-v1
     paths:
