@@ -186,6 +186,37 @@ jobs:
                 throw new Error(`Winner lifecycle alias contract failed: ${JSON.stringify(winnerLifecycleAliasAudit)}`);
               }
 
+              // Refund availability must resolve canonical/legacy period IDs identically.
+              const refundAliasAudit = await page.evaluate(() => {
+                const engine = window.__AW_FINANCIAL_ENGINE__;
+                const periods = [
+                  { id: "periode-2026-9", label: "Periode September 2026", bulan: 9, tahun: 2026, nominal: 100000 }
+                ];
+                const data = {
+                  periods,
+                  settings: { nominal: 100000 },
+                  iurans: [{
+                    id: "i-alias",
+                    anggota_id: "m-a",
+                    periode_id: "periode_2026_9",
+                    nominal: 200000,
+                    status: "lunas"
+                  }],
+                  credits: [],
+                  refunds: [],
+                  members: [{ id: "m-a", statusAktif: true }]
+                };
+                const available = engine?.availableRefund?.("m-a", "periode-2026-9", data) ?? null;
+                return {
+                  available,
+                  expected: 100000
+                };
+              });
+              console.log(JSON.stringify({ refundAliasAudit }, null, 2));
+              if (Number(refundAliasAudit.available) !== refundAliasAudit.expected) {
+                throw new Error(`Refund period-alias contract failed: ${JSON.stringify(refundAliasAudit)}`);
+              }
+
               // Deterministic draw-eligibility contract: read-only synthetic data.
               // This catches period-ID aliases, previous winners, inactive members,
               // partial payments, and the only-paid configuration without touching LIVE data.
