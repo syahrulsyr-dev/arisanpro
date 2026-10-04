@@ -29,7 +29,7 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
-      - name: Test deployed app and public view on desktop/mobile
+      - name: Test branch build and public view on desktop/mobile
         run: |
           mkdir -p test-results
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/arisanpro-http.log 2>&1 &
@@ -122,7 +122,8 @@ jobs:
               const financeSectionVisible = await page.locator('#aw-public-finance').count() > 0;
               const financeUnavailable = /Data Keuangan Belum Tersedia/i.test(publicText);
               const stillLoading = /Memuat data warga/i.test(publicText);
-              const visibleNaN = /NaN/i.test(publicText);
+              const nanMatches = publicText.match(/\\bNaN\\b|Rp\\s*NaN/gi) || [];
+              const visibleNaN = nanMatches.length > 0;
               const dimensions = await page.evaluate(() => ({
                 viewportWidth: window.innerWidth,
                 documentClientWidth: document.documentElement.clientWidth,
@@ -151,6 +152,7 @@ jobs:
                 financeUnavailable,
                 stillLoading,
                 visibleNaN,
+                nanMatches,
                 publicRoute: publicUrl.toString(),
                 ...dimensions
               };
