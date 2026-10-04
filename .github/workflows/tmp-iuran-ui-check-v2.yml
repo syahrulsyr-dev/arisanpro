@@ -1,0 +1,81 @@
+name: Temp Iuran UI Check v2
+on:
+  push:
+    branches:
+      - fix/iuran-tab-responsive-r2
+permissions:
+  contents: read
+jobs:
+  iuran-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Test Iuran CSS at 390 and 1440
+        run: |
+          mkdir -p test-results
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/aw-http.log 2>&1 &
+          PID=$!
+          trap 'kill $PID 2>/dev/null || true' EXIT
+          sleep 2
+          cat > check-iuran.cjs <<'NODE'
+          const {chromium}=require('playwright');
+          const fs=require('fs');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const out=[];
+            for(const v of [{name:'390',width:390,height:844},{name:'1440',width:1440,height:1000}]){
+              const page=await browser.newPage({viewport:{width:v.width,height:v.height}});
+              await page.goto('http://127.0.0.1:4173/index.html',{waitUntil:'domcontentloaded'});
+              const r=await page.evaluate(()=>{
+                document.body.className='aw-authenticated';
+                const root=document.getElementById('root')||document.body;
+                const main=document.createElement('main');
+                main.setAttribute('data-aw-page','iuran');
+                main.innerHTML='<div class="aw-v121-iuran-action-row"><button class="aw-v121-iuran-add-btn">➕ Catat Iuran</button></div><div class="aw-v121-matrix-scroll"><table><thead><tr><th>Anggota / Periode</th><th>Periode 1</th></tr></thead><tbody>'+Array.from({length:30},()=>'<tr><td>Warga</td><td>Lunas</td></tr>').join('')+'</tbody></table></div>';
+                root.appendChild(main);
+                const a=main.querySelector('.aw-v121-iuran-add-btn');
+                const m=main.querySelector('.aw-v121-matrix-scroll');
+                const th=m.querySelector('thead th');
+                const td=m.querySelector('tbody td');
+                const table=m.querySelector('table');
+                const cm=getComputedStyle(m), ca=getComputedStyle(a), cth=getComputedStyle(th), ctd=getComputedStyle(td);
+                m.scrollTop=120;
+                return {
+                  buttonWidth:Math.round(a.getBoundingClientRect().width),
+                  buttonHeight:Math.round(a.getBoundingClientRect().height),
+                  matrixHeight:Math.round(m.getBoundingClientRect().height),
+                  overflowY:cm.overflowY, overflowX:cm.overflowX, scrollTop:m.scrollTop,
+                  theadPosition:cth.position, firstColPosition:ctd.position,
+                  tableWidth:Math.round(table.getBoundingClientRect().width),
+                  documentOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1
+                };
+              });
+              console.log(JSON.stringify({viewport:v.name,...r}));
+              if(r.buttonWidth<=0||r.buttonHeight<=0||r.matrixHeight<=0) throw new Error('Iuran dimensions invalid at '+v.name);
+              if(r.overflowY!=='auto'||r.overflowX!=='auto'||r.scrollTop!==120) throw new Error('Iuran scroll container failed at '+v.name);
+              if(r.theadPosition!=='sticky'||r.firstColPosition!=='sticky') throw new Error('Iuran sticky header/column failed at '+v.name);
+              if(r.documentOverflow) throw new Error('Page horizontal overflow at '+v.name);
+              if(v.width===390 && (r.matrixHeight<280 || r.matrixHeight>320)) throw new Error('390px matrix height out of range: '+r.matrixHeight);
+              if(v.width===1440 && (r.matrixHeight<380 || r.matrixHeight>440)) throw new Error('1440px matrix height out of range: '+r.matrixHeight);
+              out.push({viewport:v.name,...r});
+            }
+            fs.writeFileSync('test-results/iuran-ui-summary.json',JSON.stringify(out,null,2));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+          node check-iuran.cjs
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: temp-iuran-ui-check-v2
+          path: test-results/
+          retention-days: 3
