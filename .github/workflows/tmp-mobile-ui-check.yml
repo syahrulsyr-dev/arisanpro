@@ -39,19 +39,21 @@ jobs:
             await page.evaluate(() => {
               document.body.classList.add('aw-authenticated');
               document.body.innerHTML = `
-                <main data-aw-page="dashboard">
-                  <div class="flex items-end gap-2 h-[160px]">
-                    <div><div></div><div>Sep 2026</div><div>26/26</div></div>
-                    <div><div></div><div>Okt 2026</div><div>25/26</div></div>
-                    <div><div></div><div>Nov 2026</div><div>24/26</div></div>
-                  </div>
-                </main>
-                <main data-aw-page="anggota">
-                  <div class="grid md:grid-cols-2 xl:grid-cols-3">
-                    <div><div class="text-sm">Anggota Satu</div><div class="text-xs">0812</div><div class="w-9" style="height:28px"></div></div>
-                    <div><div class="text-sm">Anggota Dua</div><div class="text-xs">0813</div><div class="w-9" style="height:28px"></div></div>
-                  </div>
-                </main>
+                <div id="root">
+                  <main data-aw-page="dashboard">
+                    <div class="flex items-end gap-2 h-[160px]">
+                      <div><div></div><div>Sep 2026</div><div>26/26</div></div>
+                      <div><div></div><div>Okt 2026</div><div>25/26</div></div>
+                      <div><div></div><div>Nov 2026</div><div>24/26</div></div>
+                    </div>
+                  </main>
+                  <main data-aw-page="anggota">
+                    <div class="grid md:grid-cols-2 xl:grid-cols-3">
+                      <div><div class="text-sm">Anggota Satu</div><div class="text-xs">0812</div><div class="w-9" style="height:28px"></div></div>
+                      <div><div class="text-sm">Anggota Dua</div><div class="text-xs">0813</div><div class="w-9" style="height:28px"></div></div>
+                    </div>
+                  </main>
+                </div>
               `;
             });
             const result = await page.evaluate(() => {
