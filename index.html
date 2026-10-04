@@ -3410,7 +3410,7 @@ grant execute on function public.bayar_pemenang(text,date) to authenticated;
     const c=await getClient();
     if(!c?.from)throw Error('Supabase client belum siap');
     const [p,r]=await Promise.all([
-      c.from('pemenang').select('*').order('tanggal_undi',{ascending:false}),
+      c.from('pemenang').select('*').order('tanggal_undi',{ascending:false}).order('created_at',{ascending:false}),
       c.from('pembayaran_pemenang').select('*').order('tanggal_bayar',{ascending:false})
     ]);
     if(p.error)throw p.error;
@@ -6881,6 +6881,19 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
     if(wid&&/^Batalkan pemenang/i.test(b.getAttribute('title')||'')){e.preventDefault();e.stopImmediatePropagation();cancelWinner(wid);return;}
   },true);
 
+  function setupUndian(root){
+    if(!root)return;
+    // Legacy/diagnostic UI must never expose a "SQL Pembayaran" control
+    // inside the operational Undian page. Remove it by rendered text as well,
+    // so dynamically-mounted legacy controls are covered without touching draw logic.
+    root.querySelectorAll('button,[role="button"]').forEach(b=>{
+      const t=text(b);
+      if(/SQL\\s*Pembayaran|Pembayaran\\s*SQL/i.test(t)){
+        b.remove();
+      }
+    });
+  }
+
   function setupIuran(root){
     if(!root)return;
     root.querySelectorAll('label').forEach(l=>{if(/Hanya yang lunas boleh ikut undian|Hanya lunas ikut undian/i.test(text(l)))l.style.display='none';});
@@ -6945,6 +6958,7 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
     if(!isAdmin())return;
     setupFinance();
     setupReports(page('laporan'));
+    setupUndian(page('undian'));
     setupIuran(page('iuran'));
     setupMembers(page('anggota'));
     if(!isMobile())return;
