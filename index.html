@@ -6694,5 +6694,67 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .aw-
   }
 }
 </style>
+<style id="aw-v121-iuran-r5-mobile-gesture">
+/* V121 IURAN R5 — deterministic two-axis touch gesture for the read-only matrix.
+   The matrix contains no editable controls, so vertical/horizontal pan can be owned
+   by this element even when the surrounding mobile shell has nested scroll containers. */
+@media(max-width:767px){
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .aw-v121-matrix-scroll{
+    height:310px!important;
+    max-height:310px!important;
+    min-height:310px!important;
+    overflow-x:auto!important;
+    overflow-y:scroll!important;
+    touch-action:none!important;
+    overscroll-behavior:contain!important;
+    -webkit-overflow-scrolling:auto!important;
+    scrollbar-gutter:stable!important;
+  }
+}
+@media(max-width:390px){
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .aw-v121-matrix-scroll{
+    height:285px!important;
+    max-height:285px!important;
+    min-height:285px!important;
+  }
+}
+</style>
+<script id="aw-v121-iuran-r5-touch-controller">
+(function(){
+  'use strict';
+  if(window.__AW_V121_IURAN_TOUCH_SCROLL_R5__) return;
+  window.__AW_V121_IURAN_TOUCH_SCROLL_R5__=true;
+  const installed=new WeakSet();
+  const install=el=>{
+    if(!el||installed.has(el))return;
+    installed.add(el);
+    let sx=0,sy=0,sl=0,st=0,moved=false;
+    el.addEventListener('touchstart',ev=>{
+      const t=ev.touches?.[0];
+      if(!t)return;
+      sx=t.clientX;sy=t.clientY;sl=el.scrollLeft;st=el.scrollTop;moved=false;
+    },{passive:true});
+    el.addEventListener('touchmove',ev=>{
+      const t=ev.touches?.[0];
+      if(!t)return;
+      const dx=t.clientX-sx,dy=t.clientY-sy;
+      if(Math.abs(dx)<2&&Math.abs(dy)<2)return;
+      moved=true;
+      el.scrollLeft=sl-dx;
+      el.scrollTop=st-dy;
+      ev.preventDefault();
+    },{passive:false});
+    el.addEventListener('touchend',()=>{if(moved){sx=sy=sl=st=0;moved=false;}},{passive:true});
+    el.addEventListener('touchcancel',()=>{sx=sy=sl=st=0;moved=false;},{passive:true});
+  };
+  const scan=()=>{
+    if(!window.matchMedia?.('(max-width: 767px)').matches)return;
+    document.querySelectorAll('#root main[data-aw-page="iuran"] .aw-v121-matrix-scroll').forEach(install);
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan,{once:true});else scan();
+  new MutationObserver(scan).observe(document.getElementById('root')||document.body,{childList:true,subtree:true});
+  window.addEventListener('resize',scan,{passive:true});
+})();
+</script>
 </body>
 </html>
