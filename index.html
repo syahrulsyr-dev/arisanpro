@@ -5786,7 +5786,7 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
 
   function hideLegacyWinners(){
     document.querySelectorAll('#root h3').forEach(h=>{
-      if(/Pemenang Terbaru\\s*&\\s*Riwayat/i.test(text(h))){
+      if(/Pemenang Terbaru\s*&\s*Riwayat/i.test(text(h))){
         const panel=h.parentElement;
         if(panel&&!panel.closest('#aw-v121-public-winners-canonical'))panel.hidden=true;
       }
