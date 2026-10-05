@@ -155,13 +155,8 @@ function initAuth(client){
     }
 
     if(ev==='SIGNED_IN'&&sess){
-      const role=sess.user.email?.includes('bendahara')?'bendahara':'admin';
-      const newSess=JSON.stringify({username:sess.user.email.split('@')[0],email:sess.user.email,role,id:sess.user.id});
       const oldSess=localStorage.getItem('arisan_session');
-      localStorage.setItem('arisan_session',newSess);
-      localStorage.setItem('arisan_supabase_session',JSON.stringify(sess));
-      window.__awSupabaseAuthReady=true;
-      window.__awSupabaseSession=sess;
+      persistAuthSession(sess);
       console.log('🔐 SIGNED_IN',sess.user.email,'old:',!!oldSess);
 
       if(!oldSess&&!__hasReloaded){
