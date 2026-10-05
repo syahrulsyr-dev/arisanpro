@@ -145,7 +145,11 @@ jobs:
               return signedIn && !/Masuk sebagai Pengelola/i.test(body);
             }, { timeout: 30000 });
 
-            await page.waitForTimeout(500);
+            // First login may intentionally reload after the initial Supabase pull.
+            // Give that navigation cycle time to settle before reading the DOM.
+            await page.waitForTimeout(1800);
+            await page.waitForLoadState('domcontentloaded').catch(() => {});
+            await page.waitForTimeout(300);
             await page.waitForFunction(() => {
               const dash = document.querySelector('#root main[data-aw-page="dashboard"]');
               if (window.__awSupabaseAuthReady !== true || !dash) return false;
