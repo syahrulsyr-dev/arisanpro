@@ -319,6 +319,97 @@ jobs:
             }, { timeout: 30000 });
             await page.waitForTimeout(1000);
 
+            phase = 'undian-admin';
+            await clickNav(page, 'Undian');
+            await page.waitForTimeout(700);
+
+            const undianAudit = await page.evaluate(() => {
+              const root = document.querySelector('main[data-aw-page="undian"]');
+              if (!root) return { found: false };
+
+              const cancelButtons = [...root.querySelectorAll('[data-aw-v121-winner-id]')].filter(b => {
+                const r = b.getBoundingClientRect();
+                return r.width > 0 && r.height > 0 && getComputedStyle(b).display !== 'none';
+              });
+              const cancelIds = [...new Set(cancelButtons.map(b => String(b.getAttribute('data-aw-v121-winner-id') || '')))].filter(Boolean);
+              const resetButton = [...root.querySelectorAll('button')].find(b => /^Reset Pemenang$/i.test((b.textContent || '').trim()));
+              const sqlButtons = [...root.querySelectorAll('button,[role="button"]')].filter(b =>
+                /SQL\\s*Pembayaran|Pembayaran\\s*SQL/i.test((b.textContent || '').replace(/\\s+/g,' ').trim())
+              );
+
+              return {
+                found: true,
+                cancelButtonCount: cancelButtons.length,
+                cancelWinnerIds: cancelIds,
+                resetButtonVisible: !!resetButton && (() => {
+                  const r = resetButton.getBoundingClientRect();
+                  return r.width > 0 && r.height > 0 && getComputedStyle(resetButton).display !== 'none';
+                })(),
+                sqlPaymentButtonCount: sqlButtons.length,
+                horizontalOverflow: document.documentElement.scrollWidth >
+                  document.documentElement.clientWidth + 1
+              };
+            });
+
+            if (!undianAudit.found || !undianAudit.resetButtonVisible) {
+              throw new Error(`${name}: Undian admin controls are incomplete: ${JSON.stringify(undianAudit)}`);
+            }
+            if (undianAudit.sqlPaymentButtonCount !== 0) {
+              throw new Error(`${name}: legacy "SQL Pembayaran" control is still visible: ${JSON.stringify(undianAudit)}`);
+            }
+            if (undianAudit.horizontalOverflow) {
+              throw new Error(`${name}: Undian page has horizontal overflow.`);
+            }
+
+            if (undianAudit.cancelWinnerIds.length > 0) {
+              await page.evaluate(() => {
+                const client = window.__supaClient;
+                if (!client) throw new Error('Supabase client unavailable for Undian RPC spy.');
+                const originalRpc = client.rpc.bind(client);
+                window.__AW_E2E_RPC_CALLS__ = [];
+                client.rpc = async (fn, args) => {
+                  window.__AW_E2E_RPC_CALLS__.push({ fn, args });
+                  if (fn === 'reset_pemenang') {
+                    return { data: { live_cleared: true, reversed_amount: 0 }, error: null };
+                  }
+                  return originalRpc(fn, args);
+                };
+              });
+
+              const dialogs = dialog => dialog.accept();
+              page.on('dialog', dialogs);
+
+              phase = 'undian-cancel-spy';
+              const cancel = page.locator('[data-aw-v121-winner-id="' + undianAudit.cancelWinnerIds[0] + '"]').first();
+              await cancel.click();
+              await page.waitForTimeout(500);
+
+              const cancelRpcAudit = await page.evaluate(() =>
+                Array.isArray(window.__AW_E2E_RPC_CALLS__) ?
+                  window.__AW_E2E_RPC_CALLS__.filter(x => x.fn === 'reset_pemenang') : []
+              );
+
+              if (!cancelRpcAudit.length) {
+                throw new Error(`${name}: Batalkan Pemenang did not route through reset_pemenang RPC.`);
+              }
+
+              phase = 'undian-reset-spy';
+              const reset = page.getByRole('button', { name: /^Reset Pemenang$/i }).first();
+              await reset.click();
+              await page.waitForTimeout(500);
+
+              const resetRpcAudit = await page.evaluate(() =>
+                Array.isArray(window.__AW_E2E_RPC_CALLS__) ?
+                  window.__AW_E2E_RPC_CALLS__.filter(x => x.fn === 'reset_pemenang') : []
+              );
+
+              if (resetRpcAudit.length < undianAudit.cancelWinnerIds.length) {
+                throw new Error(`${name}: Reset Pemenang did not route all winners through reset_pemenang RPC: ${JSON.stringify(resetRpcAudit)}`);
+              }
+
+              page.off('dialog', dialogs);
+            }
+
             phase = 'payment-form';
             await clickNav(page, 'Iuran');
             await page.waitForTimeout(700);
@@ -384,6 +475,7 @@ jobs:
               checkedTabs: ['Anggota', 'Iuran', 'Undian', 'Laporan'],
               memberLayout,
               iuranLayout,
+              undianAudit,
               tambahAnggotaFormVisible: memberFormVisible,
               catatIuranFormVisible: paymentFormVisible,
               horizontalOverflow: finalState.horizontalOverflow,
