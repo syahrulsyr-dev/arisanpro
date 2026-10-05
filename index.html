@@ -7402,7 +7402,21 @@ body.aw-authenticated:not(.aw-public-live) .aw-ui-modal-contract>div{
     b.innerHTML='<span style="display:inline-flex;width:20px;justify-content:center">💰</span><span>Keuangan</span>';
     b.addEventListener('click',function(ev){
       ev.preventDefault();ev.stopPropagation();
-      window.__AW_FINANCE_NAV_TOGGLE__?.();
+      const open=()=>{
+        if(document.body.classList.contains('aw-finance-open')) return true;
+        if(typeof window.__AW_FINANCE_NAV_OPEN__==='function'){ window.__AW_FINANCE_NAV_OPEN__(); return true; }
+        if(typeof window.__AW_FINANCE_NAV_TOGGLE__==='function'){ window.__AW_FINANCE_NAV_TOGGLE__(); return true; }
+        return false;
+      };
+      if(!open()){
+        let tries=0;
+        const retry=()=>{
+          if(document.body.classList.contains('aw-finance-open')||tries++>=20) return;
+          if(open()) return;
+          setTimeout(retry,100);
+        };
+        retry();
+      }
     });
     return b;
   }
