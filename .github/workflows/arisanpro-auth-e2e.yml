@@ -214,7 +214,12 @@ jobs:
               const overlay = overlays.find(el =>
                 /Catat Pembayaran Iuran/i.test(el.innerText || '')
               );
-              const panel = overlay ? [...overlay.querySelectorAll('div')].reverse().find(visible) : null;
+              const panel = overlay ? (
+                [...overlay.children].find(visible) ||
+                [...overlay.querySelectorAll('div')].find(el =>
+                  visible(el) && String(el.className || '').includes('bg-white')
+                )
+              ) : null;
               if (!overlay) return {visible:false,centered:false,dx:null,dy:null};
               const or=overlay.getBoundingClientRect();
               const pr=panel?.getBoundingClientRect();
