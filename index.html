@@ -1803,7 +1803,7 @@ function TransactionDetailPanel({iurans=[],members=[],periods=[],settings={}}){
   ]}),
   open&&c("div",{className:"aw-pr-collapsible-body",children:[
    c("div",{className:"aw-pr-detail-meta",children:[i("span",{children:"Status: Lunas & Cicilan"}),i("span",{children:"Total: "+rows.length+" transaksi"})]}),
-   c("div",{className:"aw-pr-table-scroll aw-pr-detail-scroll",style:"max-height:380px;overflow:auto",children:c("table",{className:"w-full text-sm min-w-[640px]",children:[
+   c("div",{className:"aw-pr-table-scroll aw-pr-detail-scroll",style:{maxHeight:380,overflow:"auto"},children:c("table",{className:"w-full text-sm min-w-[640px]",children:[
     i("thead",{className:"text-[11px] tracking-widest text-slate-400 uppercase border-b border-slate-100",children:c("tr",{children:[
      i("th",{className:"text-left py-3",children:"Tanggal"}),i("th",{className:"text-left py-3",children:"Anggota"}),i("th",{className:"text-left py-3",children:"Periode"}),i("th",{className:"text-left py-3",children:"Metode"}),i("th",{className:"text-right py-3",children:"Nominal"}),i("th",{className:"text-right py-3",children:"Denda"})
     ]})}),
