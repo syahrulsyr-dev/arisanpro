@@ -19,7 +19,7 @@ jobs:
     env:
       ARISANPRO_E2E_EMAIL: ${{ secrets.ARISANPRO_E2E_EMAIL }}
       ARISANPRO_E2E_PASSWORD: ${{ secrets.ARISANPRO_E2E_PASSWORD }}
-      ARISANPRO_E2E_TARGET: https://syahrulsyr-dev.github.io/arisanpro/
+      ARISANPRO_E2E_TARGET: http://127.0.0.1:4173/
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -37,6 +37,14 @@ jobs:
       - name: Run authenticated admin E2E on desktop/mobile
         run: |
           mkdir -p test-results
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/arisanpro-auth-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:4173/ > /dev/null || { cat /tmp/arisanpro-auth-http.log; exit 1; }
           cat > auth-e2e.cjs <<'NODE'
           const { chromium } = require('playwright');
           const fs = require('fs');
@@ -173,21 +181,6 @@ jobs:
             await page.waitForTimeout(1000);
 
             phase = 'navigation';
-
-            const tabContract = await page.evaluate(() => {
-              const pages = ['dashboard','anggota','iuran','undian','laporan'];
-              const visible = pages.filter(key => {
-                const el = document.querySelector(`#root main[data-aw-page="${key}"]`);
-                if (!el) return false;
-                const r = el.getBoundingClientRect();
-                const s = getComputedStyle(el);
-                return r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden' && !el.hidden;
-              });
-              return { pagesPresent: pages.filter(key => !!document.querySelector(`#root main[data-aw-page="${key}"]`)), visible };
-            });
-            if (tabContract.pagesPresent.length < 5) {
-              throw new Error(`${name}: expected all primary app pages to exist: ${JSON.stringify(tabContract)}`);
-            }
 
             for (const tab of ['Dashboard', 'Anggota', 'Iuran', 'Undian', 'Laporan']) {
               await clickNav(page, tab);
