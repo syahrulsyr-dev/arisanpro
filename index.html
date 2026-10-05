@@ -7233,17 +7233,55 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .aw-
 }
 </style>
 <style id="aw-finance-desktop-width-fix">
-/* Desktop Finance content: keep the workspace background full-width,
-   but constrain the actual controls and ledger to a readable admin canvas. */
+/* Desktop Finance visual owner.
+   Use a readable 1040px admin canvas and prevent intrinsic child widths
+   from clipping the header, module toolbar, or ledger action cards. */
 @media(min-width:1025px){
   body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-head,
   body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-tools,
   body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-note,
   body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > #aw-fin-content{
     width:100%!important;
-    max-width:1120px!important;
+    max-width:1040px!important;
     margin-left:auto!important;
     margin-right:auto!important;
+  }
+
+  body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-head{
+    min-width:0!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-head > div:first-child{
+    min-width:0!important;
+    flex:1 1 auto!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-head > button{
+    flex:0 0 auto!important;
+    white-space:nowrap!important;
+  }
+
+  body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-tools{
+    min-width:0!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-tools > button{
+    min-width:0!important;
+    width:100%!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content #aw-v22541-proof .al-actions,
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content #aw-v22541-proof .al-summary{
+    min-width:0!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content #aw-v22541-proof .al-action,
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content #aw-v22541-proof .al-card{
+    min-width:0!important;
+    width:100%!important;
+    overflow:hidden!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content #aw-v22541-proof .al-action b,
+  body.aw-authenticated:not(.aw-public-live) #aw-fin-content #aw-v22541-proof .al-action span{
+    overflow-wrap:anywhere!important;
   }
 }
 </style>
