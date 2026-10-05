@@ -138,6 +138,39 @@ jobs:
               fullPage: true, animations: 'disabled'
             });
 
+            phase = 'member-quick-action';
+            const addMemberQuick = await findActionButton(page, 'Tambah Anggota');
+            await addMemberQuick.scrollIntoViewIfNeeded();
+            await addMemberQuick.click();
+            await page.waitForTimeout(500);
+
+            const memberFormVisible = await page.evaluate(() => {
+              const visible = el => {
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
+              return [...document.querySelectorAll('.fixed')].filter(visible).some(overlay => {
+                const heading = [...overlay.querySelectorAll('h2,h3,h4')].some(h =>
+                  /^Tambah Anggota Baru$|^Edit Anggota$/i.test((h.textContent || '').trim())
+                );
+                const fields = [...overlay.querySelectorAll('input,select,textarea')].filter(visible);
+                return heading && fields.length >= 1;
+              });
+            });
+
+            if (!memberFormVisible) {
+              throw new Error(`${name}: Dashboard Quick Action "Tambah Anggota" did not open the member modal.`);
+            }
+
+            await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForFunction(() => {
+              const session = localStorage.getItem('arisan_session');
+              return !!session || window.__awSupabaseAuthReady === true;
+            }, { timeout: 30000 });
+            await page.waitForTimeout(1000);
+
             phase = 'navigation';
 
             for (const tab of ['Anggota', 'Iuran', 'Undian', 'Laporan']) {
