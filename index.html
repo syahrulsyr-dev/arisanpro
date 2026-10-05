@@ -5725,8 +5725,8 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
   body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"]>div.p-4.lg\:p-8>div.space-y-4>div:first-child>div:first-child>div:last-child span:last-child{
     grid-column:1/-1!important;text-align:center!important;padding-top:2px!important;
   }
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .overflow-auto:has(table),
-  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .overflow-x-auto:has(table){
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .overflow-auto:not(.aw-v121-matrix-scroll):has(table),
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .overflow-x-auto:not(.aw-v121-matrix-scroll):has(table){
     width:100%!important;max-width:100%!important;overflow-x:auto!important;overflow-y:hidden!important;-webkit-overflow-scrolling:touch!important;border-radius:12px!important;
   }
   body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] table{min-width:760px!important;width:max-content!important;font-size:11px!important;}
