@@ -7523,6 +7523,22 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] 
   body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] [data-aw-dashboard-action]{
     min-width:0!important;touch-action:manipulation;
   }
+  body.aw-authenticated:not(.aw-public-live) #root .aw-v121-member-modal,
+  body.aw-authenticated:not(.aw-public-live) #root .aw-v121-iuran-payment-modal{
+    inset:0!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    padding:16px!important;
+    box-sizing:border-box!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root .aw-v121-member-modal>div,
+  body.aw-authenticated:not(.aw-public-live) #root .aw-v121-iuran-payment-modal>div{
+    margin:0 auto!important;
+    max-height:calc(100dvh - 32px)!important;
+    overflow:auto!important;
+    box-sizing:border-box!important;
+  }
 }
 </style>
 
