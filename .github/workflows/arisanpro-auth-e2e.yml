@@ -393,10 +393,39 @@ jobs:
                 throw new Error(`${name}: Batalkan Pemenang did not route through reset_pemenang RPC.`);
               }
 
+              page.off('dialog', dialogs);
+
+              // Isolate Reset Pemenang from the async refresh triggered by cancel.
+              await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+              await page.waitForFunction(() => {
+                const session = localStorage.getItem('arisan_session');
+                return !!session || window.__awSupabaseAuthReady === true;
+              }, { timeout: 30000 });
+              await page.waitForTimeout(1000);
+              await clickNav(page, 'Undian');
+              await page.waitForTimeout(700);
+
+              await page.evaluate(() => {
+                const client = window.__supaClient;
+                if (!client) throw new Error('Supabase client unavailable for Undian reset RPC spy.');
+                const originalRpc = client.rpc.bind(client);
+                window.__AW_E2E_RPC_CALLS__ = [];
+                client.rpc = async (fn, args) => {
+                  window.__AW_E2E_RPC_CALLS__.push({ fn, args });
+                  if (fn === 'reset_pemenang') {
+                    return { data: { live_cleared: true, reversed_amount: 0 }, error: null };
+                  }
+                  return originalRpc(fn, args);
+                };
+              });
+
+              const resetDialogs = dialog => dialog.accept();
+              page.on('dialog', resetDialogs);
+
               phase = 'undian-reset-spy';
               const reset = page.getByRole('button', { name: /^Reset Pemenang$/i }).first();
               await reset.click();
-              await page.waitForTimeout(500);
+              await page.waitForTimeout(700);
 
               const resetRpcAudit = await page.evaluate(() =>
                 Array.isArray(window.__AW_E2E_RPC_CALLS__) ?
@@ -407,7 +436,178 @@ jobs:
                 throw new Error(`${name}: Reset Pemenang did not route all winners through reset_pemenang RPC: ${JSON.stringify(resetRpcAudit)}`);
               }
 
-              page.off('dialog', dialogs);
+              page.off('dialog', resetDialogs);
+            }
+
+            phase = 'laporan-ui';
+            await clickNav(page, 'Laporan');
+            await page.waitForTimeout(800);
+
+            const laporanLayout = await page.evaluate(() => {
+              const main = document.querySelector('main[data-aw-page="laporan"]');
+              if (!main) return { found: false };
+
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
+
+              const measure = el => {
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return {
+                  width: r.width,
+                  height: r.height,
+                  clientWidth: el.clientWidth,
+                  clientHeight: el.clientHeight,
+                  scrollWidth: el.scrollWidth,
+                  scrollHeight: el.scrollHeight,
+                  overflowX: s.overflowX,
+                  overflowY: s.overflowY,
+                  maxHeight: parseFloat(s.maxHeight) || 0
+                };
+              };
+
+              const controlHeight = el => el ? el.getBoundingClientRect().height : null;
+
+              const findReport = headingPattern => {
+                const heading = [...main.querySelectorAll('h3,h4')].find(h =>
+                  headingPattern.test((h.textContent || '').trim())
+                );
+                if (!heading) return { heading: null, panel: null, table: null, scroll: null };
+
+                let panel = null;
+                let table = null;
+                for (let el = heading; el && el !== main; el = el.parentElement) {
+                  if (!table && el.querySelector('table')) table = el.querySelector('table');
+                  if (!panel && (el.classList.contains('aw-pr-box') || el.classList.contains('bg-white'))) {
+                    panel = el;
+                  }
+                }
+
+                if (!panel && table) {
+                  for (let el = table.parentElement; el && el !== main; el = el.parentElement) {
+                    if (el.querySelector('h3,h4') === heading || el.textContent.includes((heading.textContent || '').trim())) {
+                      panel = el;
+                      break;
+                    }
+                  }
+                }
+
+                let scroll = null;
+                if (table) {
+                  for (let el = table.parentElement; el && el !== main; el = el.parentElement) {
+                    const s = getComputedStyle(el);
+                    if (visible(el) && /auto|scroll/i.test(s.overflowX) && /auto|scroll/i.test(s.overflowY)) {
+                      scroll = el;
+                      break;
+                    }
+                  }
+                }
+
+                return { heading, panel, table, scroll };
+              };
+
+              const latest = findReport(/^Transaksi Kas Terbaru$/i);
+              const detail = findReport(/^Riwayat Transaksi Detail$/i);
+
+              const filter = main.querySelector('.aw-pr-filter') ||
+                latest.heading?.parentElement?.querySelector?.('.aw-pr-filter') || null;
+              const periodFilter = main.querySelector('#aw-pr-tx-period');
+              const fromFilter = main.querySelector('#aw-pr-tx-from');
+              const toFilter = main.querySelector('#aw-pr-tx-to');
+              const resetFilter = main.querySelector('#aw-pr-tx-clear');
+              const printButton = [...main.querySelectorAll('button')].find(b =>
+                /Cetak Laporan/i.test((b.textContent || '').trim())
+              );
+
+              return {
+                found: true,
+                latestFound: visible(latest.heading),
+                detailFound: visible(detail.heading),
+                latestScrollFound: visible(latest.scroll),
+                detailScrollFound: visible(detail.scroll),
+                latest: measure(latest.panel),
+                detail: measure(detail.panel),
+                latestScroll: measure(latest.scroll),
+                detailScroll: measure(detail.scroll),
+                latestTable: measure(latest.table),
+                detailTable: measure(detail.table),
+                latestFilterFound: !!filter,
+                periodFilterFound: !!periodFilter,
+                fromFilterFound: !!fromFilter,
+                toFilterFound: !!toFilter,
+                resetFilterFound: !!resetFilter,
+                filterControlHeights: [
+                  controlHeight(periodFilter),
+                  controlHeight(fromFilter),
+                  controlHeight(toFilter),
+                  controlHeight(resetFilter)
+                ],
+                printButtonVisible: visible(printButton),
+                latestScrollSeparateFromDetail: !!latest.scroll && !!detail.scroll && latest.scroll !== detail.scroll,
+                headingTexts: [...main.querySelectorAll('h3,h4')].map(x => (x.textContent || '').trim())
+                  .filter(Boolean).filter(x => /Laporan Keuangan Profesional|Transaksi Kas Terbaru|Riwayat Transaksi Detail/i.test(x)),
+                horizontalOverflow: document.documentElement.scrollWidth >
+                  document.documentElement.clientWidth + 1
+              };
+            });
+
+            if (!laporanLayout.found ||
+                !laporanLayout.latestFound ||
+                !laporanLayout.detailFound ||
+                !laporanLayout.latestScrollFound ||
+                !laporanLayout.detailScrollFound ||
+                !laporanLayout.latestScrollSeparateFromDetail) {
+              throw new Error(`${name}: Laporan report blocks/scroll containers are incomplete or shared incorrectly: ${JSON.stringify(laporanLayout)}`);
+            }
+            if (!laporanLayout.latestFilterFound ||
+                !laporanLayout.periodFilterFound ||
+                !laporanLayout.fromFilterFound ||
+                !laporanLayout.toFilterFound ||
+                !laporanLayout.resetFilterFound) {
+              throw new Error(`${name}: Laporan transaction filter controls are incomplete: ${JSON.stringify(laporanLayout)}`);
+            }
+            if (!laporanLayout.printButtonVisible) {
+              throw new Error(`${name}: Riwayat Transaksi Detail print action is missing.`);
+            }
+            if (laporanLayout.horizontalOverflow) {
+              throw new Error(`${name}: Laporan page has horizontal overflow outside intended table scrollers.`);
+            }
+
+            if (laporanLayout.latestScroll.clientWidth <= 0 ||
+                laporanLayout.detailScroll.clientWidth <= 0 ||
+                laporanLayout.latestScroll.clientHeight <= 0 ||
+                laporanLayout.detailScroll.clientHeight <= 0) {
+              throw new Error(`${name}: Laporan scroll containers have no measurable viewport: ${JSON.stringify(laporanLayout)}`);
+            }
+
+            if (!/auto|scroll/i.test(laporanLayout.latestScroll.overflowX) ||
+                !/auto|scroll/i.test(laporanLayout.latestScroll.overflowY) ||
+                !/auto|scroll/i.test(laporanLayout.detailScroll.overflowX) ||
+                !/auto|scroll/i.test(laporanLayout.detailScroll.overflowY)) {
+              throw new Error(`${name}: Laporan report scroll ownership is not internal: ${JSON.stringify(laporanLayout)}`);
+            }
+
+            if (name === 'desktop' && (
+                !laporanLayout.latestScroll.maxHeight ||
+                !laporanLayout.detailScroll.maxHeight)) {
+              throw new Error(`${name}: Laporan desktop scroll containers lack bounded max-height ownership: ${JSON.stringify(laporanLayout)}`);
+            }
+
+            if (name === 'mobile') {
+              if (laporanLayout.latestScroll.scrollWidth <= laporanLayout.latestScroll.clientWidth ||
+                  laporanLayout.detailScroll.scrollWidth <= laporanLayout.detailScroll.clientWidth) {
+                throw new Error(`${name}: Laporan tables do not retain intended horizontal scrolling on mobile: ${JSON.stringify(laporanLayout)}`);
+              }
+              const badControl = laporanLayout.filterControlHeights.some(h => h != null && (h < 20 || h > 44));
+              if (badControl) {
+                throw new Error(`${name}: Laporan filter controls are disproportionately tall/small: ${JSON.stringify(laporanLayout)}`);
+              }
             }
 
             phase = 'payment-form';
@@ -476,6 +676,7 @@ jobs:
               memberLayout,
               iuranLayout,
               undianAudit,
+              laporanLayout,
               tambahAnggotaFormVisible: memberFormVisible,
               catatIuranFormVisible: paymentFormVisible,
               horizontalOverflow: finalState.horizontalOverflow,
