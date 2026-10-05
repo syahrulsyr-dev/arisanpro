@@ -66,16 +66,23 @@ jobs:
           const summary = [];
 
           async function clickNav(page, label) {
-            const candidates = [
-              page.getByRole('button', { name: new RegExp('^' + label + '(?:\\s|$)', 'i') }),
-              page.locator('nav button').filter({ hasText: new RegExp('^\\s*' + label + '\\b', 'i') }),
-              page.getByRole('link', { name: new RegExp('^' + label + '(?:\\s|$)', 'i') })
-            ];
-            for (const locator of candidates) {
-              if (await locator.count()) {
-                await locator.first().click();
-                return;
+            const deadline = Date.now() + 8000;
+            while (Date.now() < deadline) {
+              const candidates = [
+                page.getByRole('button', { name: new RegExp('^' + label + '(?:\\s|$)', 'i') }),
+                page.locator('nav button').filter({ hasText: new RegExp('^\\s*' + label + '\\b', 'i') }),
+                page.getByRole('link', { name: new RegExp('^' + label + '(?:\\s|$)', 'i') })
+              ];
+              for (const locator of candidates) {
+                if (await locator.count()) {
+                  const first = locator.first();
+                  if (await first.isVisible().catch(() => false)) {
+                    await first.click();
+                    return;
+                  }
+                }
               }
+              await page.waitForTimeout(200);
             }
             throw new Error('Navigation control not found: ' + label);
           }
