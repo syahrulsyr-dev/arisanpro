@@ -158,6 +158,42 @@ jobs:
               throw new Error('Authenticated session was not established.');
             }
 
+            // Login-page public warga portal regression.
+            phase = 'public-warga-button';
+            await page.evaluate(() => {
+              localStorage.removeItem('arisan_session');
+              localStorage.removeItem('arisan_supabase_session');
+              sessionStorage.removeItem('__supa_reloaded');
+            });
+            await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            const wargaButton = page.getByRole('button', { name: /Lihat sebagai Warga/i }).first();
+            await wargaButton.waitFor({ state: 'visible', timeout: 10000 });
+            await wargaButton.click();
+            await page.waitForURL(/(?:\?|&)view=public(?:&|$)/, { timeout: 20000 });
+            await page.waitForFunction(() => {
+              const text = document.body?.innerText || '';
+              return window.__AW_PUBLIC_FINANCE_SNAPSHOT__ ||
+                window.__AW_PUBLIC_FINANCE_ERROR__ ||
+                /Data Warga|Ringkasan|Gagal memuat data warga/i.test(text);
+            }, { timeout: 30000 });
+            const publicState = await page.evaluate(() => ({
+              url: location.href,
+              loginVisible: !!document.querySelector('input#email'),
+              hasSnapshot: !!window.__AW_PUBLIC_FINANCE_SNAPSHOT__,
+              hasPublicError: !!window.__AW_PUBLIC_FINANCE_ERROR__,
+              text: (document.body?.innerText || '').slice(0, 1800)
+            }));
+            if (!/view=public/.test(publicState.url) ||
+                publicState.loginVisible ||
+                (!publicState.hasSnapshot && !publicState.hasPublicError)) {
+              throw new Error(`${name}: public warga portal failed: ${JSON.stringify(publicState)}`);
+            }
+
+            await page.screenshot({
+              path: `test-results/${name}-public-warga.png`,
+              fullPage: true, animations: 'disabled'
+            });
+
             await page.screenshot({
               path: `test-results/${name}-authenticated-dashboard.png`,
               fullPage: true, animations: 'disabled'
