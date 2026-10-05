@@ -827,6 +827,22 @@ jobs:
             }
 
             if (name === 'desktop') {
+              const financeBounds = await page.evaluate(() => {
+                const pick = (sel) => [...document.querySelectorAll(sel)].filter(el => {
+                  const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+                  return r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden';
+                });
+                const rect = el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}; };
+                const workspace = document.getElementById('aw-finance-workspace');
+                const direct = [...(workspace?.children || [])].map(el => ({tag:el.tagName,id:el.id,class:String(el.className||''),rect:rect(el)}));
+                const tools = pick('#aw-finance-workspace > .aw-fin-tools')[0];
+                const toolButtons = [...(tools?.querySelectorAll('button') || [])].map(el=>({text:(el.textContent||'').trim(),rect:rect(el)}));
+                const ledger = document.getElementById('aw-v22541-proof');
+                const actions = [...(ledger?.querySelectorAll('.al-actions .al-action') || [])].map(el=>({text:(el.querySelector('b')?.textContent||'').trim(),rect:rect(el)}));
+                const contents = [...(document.querySelectorAll('#aw-fin-content > *') || [])].map(el=>({id:el.id,class:String(el.className||''),rect:rect(el)}));
+                return {viewport:{width:innerWidth,height:innerHeight},workspace:workspace?rect(workspace):null,direct,tools:tools?rect(tools):null,toolButtons,ledger:ledger?rect(ledger):null,actions,contents};
+              });
+              require('fs').writeFileSync('test-results/finance-bounds.json', JSON.stringify(financeBounds, null, 2));
               await page.screenshot({
                 path: 'test-results/postfix-desktop-finance-workspace.png',
                 fullPage: true,
