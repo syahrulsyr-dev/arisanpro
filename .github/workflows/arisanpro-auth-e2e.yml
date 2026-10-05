@@ -229,7 +229,35 @@ jobs:
               };
             });
             if (!financeState.exists || !financeState.visible || !financeState.rootHidden) {
-              throw new Error(`${name}: finance workspace did not open as a dedicated UI surface: ${JSON.stringify(financeState)}`);
+              const diagnostic = await page.evaluate(async () => {
+                const before = {
+                  bodyClass: document.body.className,
+                  navState: window.__AW_FINANCE_NAV_STATE__ || null,
+                  openType: typeof window.__AW_FINANCE_NAV_OPEN__,
+                  toggleType: typeof window.__AW_FINANCE_NAV_TOGGLE__,
+                  financeButtons: [...document.querySelectorAll('button[data-aw-finance-nav]')].map(b => ({
+                    text: (b.textContent || '').trim(),
+                    visible: !!(b.offsetWidth || b.offsetHeight || b.getClientRects().length),
+                    html: b.outerHTML.slice(0,500)
+                  }))
+                };
+                try { await window.__AW_FINANCE_NAV_OPEN__?.(); } catch (e) {}
+                await new Promise(r => setTimeout(r, 400));
+                const w = document.querySelector('#aw-finance-workspace');
+                const r = w?.getBoundingClientRect();
+                const s = w ? getComputedStyle(w) : null;
+                return {
+                  before,
+                  after: {
+                    bodyClass: document.body.className,
+                    navState: window.__AW_FINANCE_NAV_STATE__ || null,
+                    visible: !!w && !!r && r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden',
+                    rootHidden: document.body.classList.contains('aw-finance-open') &&
+                      getComputedStyle(document.querySelector('#root') || document.body).display === 'none'
+                  }
+                };
+              });
+              throw new Error(`${name}: finance workspace did not open: state=${JSON.stringify(financeState)} diagnostic=${JSON.stringify(diagnostic)}`);
             }
 
             for (const mod of ['ledger', 'income', 'expense', 'audit', 'recon']) {
