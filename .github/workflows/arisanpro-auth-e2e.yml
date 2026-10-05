@@ -10,6 +10,8 @@ on:
 permissions:
   contents: read
 
+# Responsive acceptance test checkpoint — PR #40
+
 jobs:
   authenticated-e2e:
     runs-on: ubuntu-latest
