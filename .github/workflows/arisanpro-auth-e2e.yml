@@ -418,20 +418,13 @@ jobs:
               const main = document.querySelector('main[data-aw-page="laporan"]');
               if (!main) return { found: false };
 
-              const latest = main.querySelector('.aw-v121-report-latest');
-              const detail = main.querySelector('.aw-v121-report-detail');
-              const latestScroll = main.querySelector('.aw-v121-report-scroll-latest');
-              const detailScroll = main.querySelector('.aw-v121-report-scroll-detail');
-              const latestTable = latest?.querySelector('table');
-              const detailTable = detail?.querySelector('table');
-              const filter = latest?.querySelector('.aw-pr-filter');
-              const periodFilter = filter?.querySelector('#aw-pr-tx-period');
-              const fromFilter = filter?.querySelector('#aw-pr-tx-from');
-              const toFilter = filter?.querySelector('#aw-pr-tx-to');
-              const resetFilter = filter?.querySelector('#aw-pr-tx-clear');
-              const printButton = [...(detail?.querySelectorAll('button') || [])].find(b =>
-                /Cetak Laporan/i.test((b.textContent || '').trim())
-              );
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
 
               const measure = el => {
                 if (!el) return null;
@@ -445,28 +438,76 @@ jobs:
                   scrollWidth: el.scrollWidth,
                   scrollHeight: el.scrollHeight,
                   overflowX: s.overflowX,
-                  overflowY: s.overflowY
+                  overflowY: s.overflowY,
+                  maxHeight: parseFloat(s.maxHeight) || 0
                 };
               };
 
-              const controlHeight = el => {
-                if (!el) return null;
-                const r = el.getBoundingClientRect();
-                return r.height;
+              const controlHeight = el => el ? el.getBoundingClientRect().height : null;
+
+              const findReport = headingPattern => {
+                const heading = [...main.querySelectorAll('h3,h4')].find(h =>
+                  headingPattern.test((h.textContent || '').trim())
+                );
+                if (!heading) return { heading: null, panel: null, table: null, scroll: null };
+
+                let panel = null;
+                let table = null;
+                for (let el = heading; el && el !== main; el = el.parentElement) {
+                  if (!table && el.querySelector('table')) table = el.querySelector('table');
+                  if (!panel && (el.classList.contains('aw-pr-box') || el.classList.contains('bg-white'))) {
+                    panel = el;
+                  }
+                }
+
+                if (!panel && table) {
+                  for (let el = table.parentElement; el && el !== main; el = el.parentElement) {
+                    if (el.querySelector('h3,h4') === heading || el.textContent.includes((heading.textContent || '').trim())) {
+                      panel = el;
+                      break;
+                    }
+                  }
+                }
+
+                let scroll = null;
+                if (table) {
+                  for (let el = table.parentElement; el && el !== main; el = el.parentElement) {
+                    const s = getComputedStyle(el);
+                    if (visible(el) && /auto|scroll/i.test(s.overflowX) && /auto|scroll/i.test(s.overflowY)) {
+                      scroll = el;
+                      break;
+                    }
+                  }
+                }
+
+                return { heading, panel, table, scroll };
               };
+
+              const latest = findReport(/^Transaksi Kas Terbaru$/i);
+              const detail = findReport(/^Riwayat Transaksi Detail$/i);
+
+              const filter = main.querySelector('.aw-pr-filter') ||
+                latest.heading?.parentElement?.querySelector?.('.aw-pr-filter') || null;
+              const periodFilter = main.querySelector('#aw-pr-tx-period');
+              const fromFilter = main.querySelector('#aw-pr-tx-from');
+              const toFilter = main.querySelector('#aw-pr-tx-to');
+              const resetFilter = main.querySelector('#aw-pr-tx-clear');
+              const printButton = [...main.querySelectorAll('button')].find(b =>
+                /Cetak Laporan/i.test((b.textContent || '').trim())
+              );
 
               return {
                 found: true,
-                latestFound: !!latest,
-                detailFound: !!detail,
-                latestScrollFound: !!latestScroll,
-                detailScrollFound: !!detailScroll,
-                latest: measure(latest),
-                detail: measure(detail),
-                latestScroll: measure(latestScroll),
-                detailScroll: measure(detailScroll),
-                latestTable: measure(latestTable),
-                detailTable: measure(detailTable),
+                latestFound: visible(latest.heading),
+                detailFound: visible(detail.heading),
+                latestScrollFound: visible(latest.scroll),
+                detailScrollFound: visible(detail.scroll),
+                latest: measure(latest.panel),
+                detail: measure(detail.panel),
+                latestScroll: measure(latest.scroll),
+                detailScroll: measure(detail.scroll),
+                latestTable: measure(latest.table),
+                detailTable: measure(detail.table),
                 latestFilterFound: !!filter,
                 periodFilterFound: !!periodFilter,
                 fromFilterFound: !!fromFilter,
@@ -478,16 +519,12 @@ jobs:
                   controlHeight(toFilter),
                   controlHeight(resetFilter)
                 ],
-                printButtonVisible: !!printButton && (() => {
-                  const r = printButton.getBoundingClientRect();
-                  return r.width > 0 && r.height > 0 && getComputedStyle(printButton).display !== 'none';
-                })(),
+                printButtonVisible: visible(printButton),
+                latestScrollSeparateFromDetail: !!latest.scroll && !!detail.scroll && latest.scroll !== detail.scroll,
                 headingTexts: [...main.querySelectorAll('h3,h4')].map(x => (x.textContent || '').trim())
                   .filter(Boolean).filter(x => /Laporan Keuangan Profesional|Transaksi Kas Terbaru|Riwayat Transaksi Detail/i.test(x)),
                 horizontalOverflow: document.documentElement.scrollWidth >
-                  document.documentElement.clientWidth + 1,
-                latestMaxHeight: parseFloat(getComputedStyle(latestScroll || document.body).maxHeight) || 0,
-                detailMaxHeight: parseFloat(getComputedStyle(detailScroll || document.body).maxHeight) || 0
+                  document.documentElement.clientWidth + 1
               };
             });
 
@@ -495,8 +532,9 @@ jobs:
                 !laporanLayout.latestFound ||
                 !laporanLayout.detailFound ||
                 !laporanLayout.latestScrollFound ||
-                !laporanLayout.detailScrollFound) {
-              throw new Error(`${name}: Laporan report blocks/scroll containers are incomplete: ${JSON.stringify(laporanLayout)}`);
+                !laporanLayout.detailScrollFound ||
+                !laporanLayout.latestScrollSeparateFromDetail) {
+              throw new Error(`${name}: Laporan report blocks/scroll containers are incomplete or shared incorrectly: ${JSON.stringify(laporanLayout)}`);
             }
             if (!laporanLayout.latestFilterFound ||
                 !laporanLayout.periodFilterFound ||
@@ -526,8 +564,10 @@ jobs:
               throw new Error(`${name}: Laporan report scroll ownership is not internal: ${JSON.stringify(laporanLayout)}`);
             }
 
-            if (!laporanLayout.latestMaxHeight || !laporanLayout.detailMaxHeight) {
-              throw new Error(`${name}: Laporan report scroll containers do not have bounded max-height ownership: ${JSON.stringify(laporanLayout)}`);
+            if (name === 'desktop' && (
+                !laporanLayout.latestScroll.maxHeight ||
+                !laporanLayout.detailScroll.maxHeight)) {
+              throw new Error(`${name}: Laporan desktop scroll containers lack bounded max-height ownership: ${JSON.stringify(laporanLayout)}`);
             }
 
             if (name === 'mobile') {
