@@ -691,6 +691,8 @@ jobs:
               throw new Error(`${name}: Finance Workspace caused page-level horizontal overflow: ${JSON.stringify(financeLayout)}`);
             }
 
+            await page.evaluate(() => window.__AW_FINANCE_NAV_CLOSE__?.());
+            await page.waitForTimeout(300);
             await clickNav(page, 'Laporan');
             await page.waitForTimeout(500);
 
