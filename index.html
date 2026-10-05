@@ -7237,6 +7237,14 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .aw-
    Use a readable 1040px admin canvas and prevent intrinsic child widths
    from clipping the header, module toolbar, or ledger action cards. */
 @media(min-width:1025px){
+  /* The workspace sits beside the 252px desktop sidebar. */
+  body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace{
+    left:252px!important;
+    right:0!important;
+    width:auto!important;
+    box-sizing:border-box!important;
+  }
+
   body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-head,
   body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-tools,
   body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-note,
