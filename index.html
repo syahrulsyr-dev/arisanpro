@@ -58,8 +58,9 @@ function initAuth(client){
   const publicMode=()=>new URLSearchParams(window.location.search).get('view')==='public';
 
   const clearLocalAuth=(reason,reload=true)=>{
-    if(publicMode()||redirecting)return false;
-    redirecting=true;
+    if(publicMode())return false;
+    if(redirecting&&reload)return false;
+    if(reload)redirecting=true;
     localStorage.removeItem('arisan_session');
     localStorage.removeItem('arisan_supabase_session');
     sessionStorage.removeItem('__supa_reloaded');
@@ -159,6 +160,7 @@ function initAuth(client){
     }
 
     if(ev==='SIGNED_IN'&&sess){
+      redirecting=false;
       const oldSess=localStorage.getItem('arisan_session');
       persistAuthSession(sess);
       console.log('🔐 SIGNED_IN',sess.user.email,'old:',!!oldSess);
