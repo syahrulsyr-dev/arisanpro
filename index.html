@@ -5167,7 +5167,7 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
       b.type='button'; b.dataset.awFinanceNav='1';
       b.className='w-full flex items-center gap-3 px-3.5 h-11 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50';
       b.innerHTML='<span style="display:inline-flex;width:20px;justify-content:center">💰</span><span>Keuangan</span>';
-      b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.__AW_FINANCE_NAV_TOGGLE__?.();});
+      b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.__AW_FINANCE_NAV_OPEN__?.();});
       nav.appendChild(b);
     }
     const bottom=document.querySelector('.aw-v433-bottom-nav');
@@ -5176,7 +5176,7 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
       b.type='button'; b.dataset.awFinanceNav='1'; b.dataset.page='keuangan';
       b.title='Keuangan'; b.setAttribute('aria-label','Keuangan');
       b.innerHTML='<span>💰</span>Keuangan';
-      b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.__AW_FINANCE_NAV_TOGGLE__?.();});
+      b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.__AW_FINANCE_NAV_OPEN__?.();});
       bottom.appendChild(b);
     }
   }
