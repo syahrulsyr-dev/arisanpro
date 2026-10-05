@@ -50,6 +50,7 @@ let _checkLib = setInterval(()=>{
 }, 300);
 
 function initAuth(client){
+  window.__awAuthBootstrapDone=false;
   let authGuardBusy=false;
   let lastGuardAt=0;
   let redirecting=false;
@@ -63,6 +64,7 @@ function initAuth(client){
     sessionStorage.removeItem('__supa_reloaded');
     window.__awSupabaseAuthReady=false;
     window.__awSupabaseSession=null;
+    window.__awAuthBootstrapDone=true;
     window.dispatchEvent(new Event('aw-auth-bootstrap-ready'));
     document.body.classList.remove('aw-authenticated');
     try{window.__arisanAuthSetter?.(null)}catch{}
@@ -79,6 +81,7 @@ function initAuth(client){
     localStorage.setItem('arisan_supabase_session',JSON.stringify(session));
     window.__awSupabaseAuthReady=true;
     window.__awSupabaseSession=session;
+    window.__awAuthBootstrapDone=true;
     window.dispatchEvent(new Event('aw-auth-bootstrap-ready'));
     return true;
   };
