@@ -2863,13 +2863,14 @@ body.aw-public-live .aw-v433-bottom-nav{display:none!important}
     function syncAuthVisibility(){
       var publicMode=false;
       try{publicMode=new URLSearchParams(location.search).get('view')==='public'}catch(e){}
-      var hasSession=!!localStorage.getItem('arisan_session');
+      var hasSession=window.__awSupabaseAuthReady===true;
       document.body.classList.toggle('aw-authenticated',hasSession&&!publicMode);
       nav.style.display=(hasSession&&!publicMode)?'flex':'none';
     }
     syncAuthVisibility();
     setInterval(syncAuthVisibility,500);
     window.addEventListener('storage',syncAuthVisibility);
+    window.addEventListener('aw-auth-bootstrap-ready',syncAuthVisibility);
     function setActive(page){
       nav.querySelectorAll('button').forEach(function(x){x.classList.toggle('aw-active',x.dataset.page===page);});
     }
