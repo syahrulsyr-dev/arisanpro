@@ -2,6 +2,12 @@ name: ArisanPro Authenticated E2E
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ui-hardening/dashboard-to-finance
+    paths:
+      - index.html
+      - .github/workflows/arisanpro-auth-e2e.yml
 
 permissions:
   contents: read
@@ -13,7 +19,7 @@ jobs:
     env:
       ARISANPRO_E2E_EMAIL: ${{ secrets.ARISANPRO_E2E_EMAIL }}
       ARISANPRO_E2E_PASSWORD: ${{ secrets.ARISANPRO_E2E_PASSWORD }}
-      ARISANPRO_E2E_TARGET: https://syahrulsyr-dev.github.io/arisanpro/
+      ARISANPRO_E2E_TARGET: http://127.0.0.1:4173/
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -31,6 +37,14 @@ jobs:
       - name: Run authenticated admin E2E on desktop/mobile
         run: |
           mkdir -p test-results
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/arisanpro-auth-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:4173/ > /dev/null || { cat /tmp/arisanpro-auth-http.log; exit 1; }
           cat > auth-e2e.cjs <<'NODE'
           const { chromium } = require('playwright');
           const fs = require('fs');
@@ -168,13 +182,121 @@ jobs:
 
             phase = 'navigation';
 
-            for (const tab of ['Anggota', 'Iuran', 'Undian', 'Laporan']) {
+            for (const tab of ['Dashboard', 'Anggota', 'Iuran', 'Undian', 'Laporan']) {
               await clickNav(page, tab);
               await page.waitForTimeout(700);
               const text = await page.locator('body').innerText();
               if (!new RegExp(tab, 'i').test(text)) {
                 throw new Error(`${name}: tab "${tab}" did not render expected content.`);
               }
+              const pageState = await page.evaluate(() => {
+                const pages = [...document.querySelectorAll('#root main[data-aw-page]')].filter(el => {
+                  const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+                  return r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden' && !el.hidden;
+                });
+                return {
+                  visiblePages: pages.map(el => el.getAttribute('data-aw-page')),
+                  overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+                };
+              });
+              if (pageState.visiblePages.length !== 1 || pageState.overflow) {
+                throw new Error(`${name}: invalid app page visibility/overflow after "${tab}": ${JSON.stringify(pageState)}`);
+              }
+            }
+
+            phase = 'finance-navigation';
+            const financeButton = page.locator('button[data-aw-finance-nav]').filter({visible:true}).first();
+            if (!(await financeButton.count())) {
+              throw new Error(`${name}: no visible canonical finance navigation button. controls=${await page.locator('button').allTextContents()}`);
+            }
+            await financeButton.click();
+            await page.waitForTimeout(1200);
+            const financeState = await page.evaluate(() => {
+              const w = document.querySelector('#aw-finance-workspace');
+              const r = w?.getBoundingClientRect();
+              const s = w ? getComputedStyle(w) : null;
+              return {
+                exists: !!w,
+                visible: !!w && !!r && r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden',
+                rootHidden: (() => {
+                  const root = document.querySelector('#root');
+                  if (!root) return true;
+                  const rs = getComputedStyle(root);
+                  return document.body.classList.contains('aw-finance-open') &&
+                    (rs.display === 'none' || root.getBoundingClientRect().height === 0);
+                })(),
+                modules: [...document.querySelectorAll('#aw-fin-content > *')].map(x => x.id).filter(Boolean)
+              };
+            });
+            if (!financeState.exists || !financeState.visible || (name === 'mobile' && !financeState.rootHidden)) {
+              const diagnostic = await page.evaluate(async () => {
+                const before = {
+                  bodyClass: document.body.className,
+                  navState: window.__AW_FINANCE_NAV_STATE__ || null,
+                  openType: typeof window.__AW_FINANCE_NAV_OPEN__,
+                  toggleType: typeof window.__AW_FINANCE_NAV_TOGGLE__,
+                  financeButtons: [...document.querySelectorAll('button[data-aw-finance-nav]')].map(b => ({
+                    text: (b.textContent || '').trim(),
+                    visible: !!(b.offsetWidth || b.offsetHeight || b.getClientRects().length),
+                    html: b.outerHTML.slice(0,500)
+                  }))
+                };
+                try { await window.__AW_FINANCE_NAV_OPEN__?.(); } catch (e) {}
+                await new Promise(r => setTimeout(r, 400));
+                const w = document.querySelector('#aw-finance-workspace');
+                const r = w?.getBoundingClientRect();
+                const s = w ? getComputedStyle(w) : null;
+                return {
+                  before,
+                  after: {
+                    bodyClass: document.body.className,
+                    navState: window.__AW_FINANCE_NAV_STATE__ || null,
+                    visible: !!w && !!r && r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden',
+                    rootHidden: document.body.classList.contains('aw-finance-open') &&
+                      getComputedStyle(document.querySelector('#root') || document.body).display === 'none'
+                  }
+                };
+              });
+              throw new Error(`${name}: finance workspace did not open: state=${JSON.stringify(financeState)} diagnostic=${JSON.stringify(diagnostic)}`);
+            }
+
+            for (const mod of ['ledger', 'income', 'expense', 'audit', 'recon']) {
+              const button = page.locator(`#aw-finance-workspace [data-fin-jump="${mod}"]`).first();
+              if (!(await button.count())) throw new Error(`${name}: finance module button missing: ${mod}`);
+              await button.click();
+              await page.waitForTimeout(250);
+              const active = await page.evaluate(key => {
+                const b = document.querySelector(`#aw-finance-workspace [data-fin-jump="${key}"]`);
+                return {
+                  active: !!b && b.classList.contains('aw-fin-tool-active'),
+                  target: (() => {
+                    const map = {ledger:'aw-v22541-proof',income:'aw-inc-panel',expense:'aw-exp-panel',audit:'aw-v223-audit',recon:'aw-v224-reconciliation'};
+                    const el = document.getElementById(map[key]);
+                    return !!el && !!el.closest('#aw-fin-content');
+                  })()
+                };
+              }, mod);
+              if (!active.active || !active.target) {
+                throw new Error(`${name}: finance module "${mod}" did not activate/mount correctly: ${JSON.stringify(active)}`);
+              }
+            }
+
+            const closeFinance = page.locator('#aw-fin-close').first();
+            if (!(await closeFinance.count())) throw new Error(`${name}: finance close button missing`);
+            await closeFinance.click();
+            await page.waitForTimeout(500);
+            const closedFinance = await page.evaluate(() => ({
+              open: document.body.classList.contains('aw-finance-open'),
+              workspaceDisplay: getComputedStyle(document.querySelector('#aw-finance-workspace') || document.body).display,
+              rootVisible: (() => {
+                const root = document.querySelector('#root');
+                if (!root) return false;
+                const r = root.getBoundingClientRect(), s = getComputedStyle(root);
+                return r.width > 0 && r.height > 0 && s.display !== 'none';
+              })()
+            }));
+            if (closedFinance.open || !closedFinance.rootVisible) {
+              throw new Error(`${name}: finance workspace did not close cleanly: ${JSON.stringify(closedFinance)}`);
             }
 
             await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });

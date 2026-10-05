@@ -11,6 +11,7 @@ on:
       - main
       - test/playwright-smoke-v10
       - test/public-realtime-verification-v1
+      - ui-hardening/dashboard-to-finance
     paths:
       - index.html
       - .github/workflows/arisanpro-playwright-smoke.yml
