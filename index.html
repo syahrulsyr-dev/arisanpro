@@ -7439,7 +7439,7 @@ body.aw-authenticated:not(.aw-public-live) .aw-ui-modal-contract>div{
     schedule.t=setTimeout(()=>{markPages();ensureFinanceControls();syncNav();},80);
   }
   document.addEventListener('click',function(ev){
-    const b=ev.target?.closest?.('aside nav button,.aw-v433-bottom-nav button');
+    const b=ev.target?.closest?.('button,a,[role="button"]');
     if(!b) return;
     const label=norm(b.textContent);
     const key=Object.keys(LABELS).find(k=>label===norm(LABELS[k])||label.startsWith(norm(LABELS[k])+' '));
