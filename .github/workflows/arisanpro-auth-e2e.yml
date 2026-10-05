@@ -213,7 +213,9 @@ jobs:
                 secondCardWidth: secondCard?.width ?? 0,
                 titleFontSize: firstName ? getComputedStyle(firstName).fontSize : null,
                 horizontalOverflow: document.documentElement.scrollWidth >
-                  document.documentElement.clientWidth + 1
+                  document.documentElement.clientWidth + 1,
+                latestMaxHeight: parseFloat(getComputedStyle(latestScroll || document.body).maxHeight) || 0,
+                detailMaxHeight: parseFloat(getComputedStyle(detailScroll || document.body).maxHeight) || 0
               };
             });
 
@@ -524,9 +526,7 @@ jobs:
               throw new Error(`${name}: Laporan report scroll ownership is not internal: ${JSON.stringify(laporanLayout)}`);
             }
 
-            const latestMaxHeight = parseFloat(getComputedStyle(document.querySelector('.aw-v121-report-scroll-latest')).maxHeight) || 0;
-            const detailMaxHeight = parseFloat(getComputedStyle(document.querySelector('.aw-v121-report-scroll-detail')).maxHeight) || 0;
-            if (!latestMaxHeight || !detailMaxHeight) {
+            if (!laporanLayout.latestMaxHeight || !laporanLayout.detailMaxHeight) {
               throw new Error(`${name}: Laporan report scroll containers do not have bounded max-height ownership: ${JSON.stringify(laporanLayout)}`);
             }
 
