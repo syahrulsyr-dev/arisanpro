@@ -97,9 +97,8 @@ jobs:
             const loginButton = page.getByRole('button', { name: /^Masuk$/i }).first();
             await loginButton.waitFor({ state: 'visible', timeout: 20000 });
 
-            const inputs = page.locator('input');
             const passwordInput = page.locator('input[type="password"]').first();
-            const userInput = inputs.filter({ hasNot: page.locator('[type="password"]') }).first();
+            const userInput = page.locator('input:not([type="password"])').first();
 
             await passwordInput.fill(password);
             await userInput.fill(email);
@@ -153,14 +152,19 @@ jobs:
             await page.waitForTimeout(400);
 
             const memberFormVisible = await page.evaluate(() => {
-              const body = document.body?.innerText || '';
-              const save = [...document.querySelectorAll('button')].some(b =>
-                /^\\s*Simpan\\s*$/i.test((b.textContent || '').trim())
-              );
-              const nameInput = [...document.querySelectorAll('input')].some(i =>
-                /nama/i.test(i.placeholder || '') || /nama/i.test(i.getAttribute('aria-label') || '')
-              );
-              return save || nameInput || /Tambah Anggota/i.test(body);
+              const visible = el => {
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
+              const forms = [...document.querySelectorAll('form,[role="dialog"],dialog,.fixed')].filter(visible);
+              return forms.some(form => {
+                const text = form.innerText || '';
+                const fields = [...form.querySelectorAll('input,select,textarea')].filter(visible);
+                return fields.length > 0 && /nama|anggota/i.test(text + ' ' +
+                  fields.map(x => (x.placeholder || '') + ' ' + (x.getAttribute('aria-label') || '')).join(' '));
+              });
             });
 
             if (!memberFormVisible) {
@@ -184,16 +188,21 @@ jobs:
             await page.waitForTimeout(400);
 
             const paymentFormVisible = await page.evaluate(() => {
-              const body = document.body?.innerText || '';
-              const save = [...document.querySelectorAll('button')].some(b =>
-                /^\\s*Simpan\\s*$/i.test((b.textContent || '').trim())
-              );
-              const paymentField = [...document.querySelectorAll('input,select')].some(i =>
-                /nominal|anggota|periode|tanggal|bayar/i.test(
-                  (i.placeholder || '') + ' ' + (i.getAttribute('aria-label') || '') + ' ' + (i.name || '')
-                )
-              );
-              return save || paymentField || /Catat Iuran/i.test(body);
+              const visible = el => {
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
+              const forms = [...document.querySelectorAll('form,[role="dialog"],dialog,.fixed')].filter(visible);
+              return forms.some(form => {
+                const text = form.innerText || '';
+                const fields = [...form.querySelectorAll('input,select,textarea')].filter(visible);
+                const fieldText = fields.map(x =>
+                  (x.placeholder || '') + ' ' + (x.getAttribute('aria-label') || '') + ' ' + (x.name || '')
+                ).join(' ');
+                return fields.length > 0 && /nominal|anggota|periode|tanggal|bayar/i.test(text + ' ' + fieldText);
+              });
             });
 
             if (!paymentFormVisible) {
