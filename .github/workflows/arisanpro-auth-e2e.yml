@@ -181,6 +181,7 @@ jobs:
             await page.waitForLoadState('domcontentloaded').catch(() => {});
             const loginHeading = page.getByRole('heading', { name: /Masuk sebagai Pengelola/i }).first();
             await loginHeading.waitFor({ state: 'visible', timeout: 20000 });
+            await page.waitForFunction(() => window.__awAuthBootstrapDone === true, { timeout: 20000 });
             const loginAgain = page.locator('input#email').first();
             await loginAgain.waitFor({ state: 'visible', timeout: 10000 });
 
