@@ -270,7 +270,7 @@ jobs:
                 return {
                   active: !!b && b.classList.contains('aw-fin-tool-active'),
                   target: (() => {
-                    const map = {ledger:'aw-admin-ledger',income:'aw-inc-panel',expense:'aw-exp-panel',audit:'aw-v223-audit',recon:'aw-v224-reconciliation'};
+                    const map = {ledger:'aw-v22541-proof',income:'aw-inc-panel',expense:'aw-exp-panel',audit:'aw-v223-audit',recon:'aw-v224-reconciliation'};
                     const el = document.getElementById(map[key]);
                     return !!el && !!el.closest('#aw-fin-content');
                   })()
