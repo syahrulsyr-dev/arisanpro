@@ -7283,6 +7283,23 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .aw-
 </style>
 
 <!-- AW UI HARDENING V1 -->
+<style id="aw-ui-hardening-v1-desktop-finance">
+/* Desktop finance owner: the legacy finance workspace is a fixed surface beside the sidebar. */
+@media(min-width:768px){
+  body.aw-authenticated:not(.aw-public-live).aw-finance-open #aw-finance-workspace{
+    display:block!important;
+    position:fixed!important;
+    inset:0 0 0 252px!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:100dvh!important;
+    overflow:auto!important;
+    z-index:9000!important;
+    box-sizing:border-box!important;
+  }
+}
+</style>
 <style id="aw-ui-hardening-v1">
 /* V1: one UI-owner layer. No data/auth/ledger/draw mutations. */
 @media(min-width:768px){
