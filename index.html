@@ -4763,7 +4763,7 @@ grant execute on function public.aw_v22541_lock_probe(text,integer) to authentic
       #aw-v22541-proof .al-tabs{display:flex;gap:7px;padding:0 20px 12px;overflow:auto}.al-tab{height:34px;padding:0 12px;border-radius:999px;border:1px solid #d8e5df;background:#fff;font-size:10px;font-weight:800;color:#49645a;cursor:pointer;white-space:nowrap}.al-tab.active{background:#0b6b54;color:#fff;border-color:#0b6b54}.al-body{padding:0 20px 20px}.al-table-wrap{overflow:auto;border:1px solid #e7eee9;border-radius:16px;background:#fff}.al-table{width:100%;border-collapse:collapse;min-width:820px;font-size:11px}.al-table th{text-align:left;padding:10px 9px;background:#f8fbfa;color:#73837d;font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #e7eee9}.al-table td{padding:10px 9px;border-bottom:1px solid #f0f4f2;vertical-align:top}.al-table tr:last-child td{border-bottom:0}.al-r{text-align:right}.al-pos{color:#08745a;font-weight:800}.al-neg{color:#c2414d;font-weight:800}.al-amber{color:#a16207;font-weight:800}.al-empty{padding:30px;text-align:center;color:#8a9993;font-size:11px}.al-filter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.al-filter input,.al-filter select{height:36px;border:1px solid #cfded7;border-radius:10px;padding:0 10px;background:#fff;font-size:11px;min-width:150px}.al-refresh{height:36px;border:1px solid #cfded7;border-radius:10px;background:#fff;padding:0 12px;font-weight:800;font-size:11px;cursor:pointer}
       .al-modal{position:fixed;inset:0;background:rgba(4,28,22,.56);z-index:100003;display:grid;place-items:center;padding:18px}.al-dialog{width:min(620px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:0 30px 90px rgba(0,0,0,.28)} .al-harness{width:min(780px,100%)}.al-test-card{border:1px solid #dce9e3;border-radius:15px;padding:14px;background:#fbfdfc;margin-top:12px}.al-test-title{font-size:12px;font-weight:850;color:#173a2e}.al-test-sub{font-size:10px;color:#74837d;line-height:1.5;margin-top:3px}.al-test-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.al-test-grid select,.al-test-grid input{width:100%;height:38px;border:1px solid #cfded7;border-radius:10px;padding:0 10px;font-size:11px;background:#fff}.al-test-result{margin-top:10px;border-radius:12px;padding:11px;font:10px/1.55 ui-monospace,monospace;white-space:pre-wrap;max-height:220px;overflow:auto;background:#0f172a;color:#d1fae5}.al-ok{color:#08745a;font-weight:850}.al-fail{color:#b42332;font-weight:850}.al-warn{background:#fff8e7;border:1px solid #f1dfac;color:#795b14}.al-test-note{font-size:9px;color:#7b8984;line-height:1.5;margin-top:8px}.al-spin{display:inline-block;animation:alspin .8s linear infinite}@keyframes alspin{to{transform:rotate(360deg)}}.al-dh{padding:18px 20px;border-bottom:1px solid #e7eee9;display:flex;justify-content:space-between;align-items:center}.al-dh h3{margin:0;font-size:17px;color:#173a2e}.al-close{border:0;width:32px;height:32px;border-radius:50%;background:#f1f5f3;font-size:18px;cursor:pointer}.al-form{padding:20px}.al-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.al-field{display:block;font-size:10px;font-weight:800;color:#425c52}.al-field.full{grid-column:1/-1}.al-field input,.al-field select,.al-field textarea{display:block;width:100%;margin-top:5px;border:1px solid #cfded7;border-radius:10px;padding:9px 10px;font:500 12px system-ui;background:#fff}.al-field input,.al-field select{height:40px}.al-field textarea{min-height:76px;resize:vertical}.al-help{font-size:10px;color:#788780;line-height:1.5;background:#f5faf7;border:1px solid #deebe5;border-radius:11px;padding:10px;margin-top:12px}.al-actions-bottom{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.al-btn{height:40px;padding:0 14px;border-radius:10px;border:1px solid #cfded7;background:#fff;font-size:11px;font-weight:800;cursor:pointer}.al-btn.primary{background:#0b6b54;border-color:#0b6b54;color:#fff}.al-btn.refund{background:#fff7f7;border-color:#fecaca;color:#b42332}.al-btn:disabled{opacity:.55;cursor:not-allowed}.al-badge{display:inline-flex;padding:4px 7px;border-radius:999px;font-size:9px;font-weight:800;background:#eef7f2;color:#08745a}.al-badge.ref{background:#fff0f1;color:#b42332}.al-badge.credit{background:#fff8e7;color:#a16207}
       
-    </style><div class="al-head"><div><div class="al-eyebrow">FINANCE LEDGER</div><div class="al-title">Ledger Keuangan Admin</div><div class="al-sub">Pusat pencatatan arus kas: pembayaran iuran, pemasukan lain, pengeluaran, kredit, refund, dan riwayat transaksi.<div style="font-size:9px;margin-top:7px;display:inline-flex;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);font-weight:800;letter-spacing:.04em">ATOMIC LEDGER • CONCURRENCY SAFE</div></div></div><div class="al-live" id="al-live">LIVE</div></div><div class="al-summary" id="al-summary"></div><div class="al-actions"><button type="button" class="al-action" data-act="payment"><div class="al-icon">💳</div><b>Catat Pembayaran</b><span>Pembayaran penuh atau nominal lebih dari kewajiban.</span></button><button type="button" class="al-action" data-act="installment"><div class="al-icon">🧾</div><b>Cicilan</b><span>Catat pembayaran sebagian tanpa prompt.</span></button><button type="button" class="al-action" data-act="income"><div class="al-icon">💰</div><b>Catat Pemasukan Lain</b><span>Catat pemasukan non-iuran langsung ke database.</span></button><button type="button" class="al-action" data-act="expense"><div class="al-icon">💸</div><b>Catat Pengeluaran</b><span>Catat kas keluar seperti operasional, konsumsi, acara, atau lainnya.</span></button><button type="button" class="al-action" data-act="credit"><div class="al-icon">↪️</div><b>Gunakan Kredit</b><span>Alihkan kelebihan pembayaran ke periode berikutnya.</span></button><button type="button" class="al-action" data-act="refund"><div class="al-icon">↩️</div><b>Catat Refund</b><span>Kembalikan kelebihan pembayaran ke anggota.</span></button></div><div class="al-tabs"><button class="al-tab active" data-tab="all">Riwayat Ledger</button><button class="al-tab" data-tab="payment">Pembayaran</button><button class="al-tab" data-tab="credit">Kredit</button><button class="al-tab" data-tab="refund">Refund</button></div><div class="al-body" id="al-body"></div>`;
+    </style><div class="al-head"><div><div class="al-eyebrow">FINANCE LEDGER</div><div class="al-title">Ledger Keuangan Admin</div><div class="al-sub">Pusat pencatatan arus kas: pembayaran iuran, pemasukan lain, pengeluaran, kredit, refund, dan riwayat transaksi.<div class="al-proof">ATOMIC LEDGER • CONCURRENCY SAFE</div></div></div><div class="al-live" id="al-live">LIVE</div></div><div class="al-summary" id="al-summary"></div><div class="al-actions"><button type="button" class="al-action" data-act="payment"><div class="al-icon">💳</div><b>Catat Pembayaran</b><span>Pembayaran penuh atau nominal lebih dari kewajiban.</span></button><button type="button" class="al-action" data-act="installment"><div class="al-icon">🧾</div><b>Cicilan</b><span>Catat pembayaran sebagian tanpa prompt.</span></button><button type="button" class="al-action" data-act="income"><div class="al-icon">💰</div><b>Catat Pemasukan Lain</b><span>Catat pemasukan non-iuran langsung ke database.</span></button><button type="button" class="al-action" data-act="expense"><div class="al-icon">💸</div><b>Catat Pengeluaran</b><span>Catat kas keluar seperti operasional, konsumsi, acara, atau lainnya.</span></button><button type="button" class="al-action" data-act="credit"><div class="al-icon">↪️</div><b>Gunakan Kredit</b><span>Alihkan kelebihan pembayaran ke periode berikutnya.</span></button><button type="button" class="al-action" data-act="refund"><div class="al-icon">↩️</div><b>Catat Refund</b><span>Kembalikan kelebihan pembayaran ke anggota.</span></button></div><div class="al-tabs"><button class="al-tab active" data-tab="all">Riwayat Ledger</button><button class="al-tab" data-tab="payment">Pembayaran</button><button class="al-tab" data-tab="credit">Kredit</button><button class="al-tab" data-tab="refund">Refund</button></div><div class="al-body" id="al-body"></div>`;
     root.appendChild(box);
     box.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>openForm(b.dataset.act));
     box.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{box.querySelectorAll('[data-tab]').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderTable(b.dataset.tab)});
@@ -7732,6 +7732,102 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] 
     max-height:calc(100dvh - 32px)!important;
     overflow:auto!important;
     box-sizing:border-box!important;
+  }
+}
+</style>
+<style id="aw-v22541-ledger-proportional-live-v1">
+/* V1 visual cleanup: keep the ledger proof badge compact and make LIVE visibly animated. */
+#aw-v22541-proof .al-head{
+  gap:12px!important;
+  padding:18px 20px!important;
+}
+#aw-v22541-proof .al-head>div:first-child{
+  min-width:0!important;
+  flex:1 1 auto!important;
+}
+#aw-v22541-proof .al-eyebrow{
+  font-size:9px!important;
+  letter-spacing:.16em!important;
+  margin-bottom:4px!important;
+}
+#aw-v22541-proof .al-title{
+  font-size:21px!important;
+  line-height:1.16!important;
+  letter-spacing:-.02em!important;
+}
+#aw-v22541-proof .al-sub{
+  font-size:10.5px!important;
+  line-height:1.45!important;
+  max-width:72ch!important;
+}
+#aw-v22541-proof .al-proof{
+  display:inline-flex!important;
+  align-items:center!important;
+  width:max-content!important;
+  max-width:100%!important;
+  margin-top:8px!important;
+  padding:4px 8px!important;
+  border:1px solid rgba(229,200,109,.30)!important;
+  border-radius:999px!important;
+  background:rgba(255,255,255,.10)!important;
+  color:rgba(255,255,255,.88)!important;
+  font-size:8px!important;
+  line-height:1.2!important;
+  font-weight:800!important;
+  letter-spacing:.06em!important;
+  white-space:nowrap!important;
+  box-sizing:border-box!important;
+}
+#aw-v22541-proof .al-live{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:6px!important;
+  min-height:28px!important;
+  padding:6px 9px!important;
+  font-size:9px!important;
+  line-height:1!important;
+  flex:0 0 auto!important;
+}
+#aw-v22541-proof .al-live::before{
+  content:""!important;
+  display:inline-block!important;
+  width:6px!important;
+  height:6px!important;
+  flex:0 0 6px!important;
+  border-radius:50%!important;
+  background:#22c55e!important;
+  box-shadow:0 0 0 0 rgba(34,197,94,.65)!important;
+  animation:aw-ledger-live-pulse-v1 1.8s ease-in-out infinite!important;
+}
+@keyframes aw-ledger-live-pulse-v1{
+  0%,100%{transform:scale(1);opacity:1;box-shadow:0 0 0 0 rgba(34,197,94,.62)}
+  50%{transform:scale(1.35);opacity:.72;box-shadow:0 0 0 5px rgba(34,197,94,0)}
+}
+@media(max-width:640px){
+  #aw-v22541-proof .al-head{
+    flex-direction:column!important;
+    align-items:stretch!important;
+    gap:10px!important;
+    padding:16px!important;
+  }
+  #aw-v22541-proof .al-head>.al-live{
+    align-self:flex-start!important;
+  }
+  #aw-v22541-proof .al-title{
+    font-size:19px!important;
+  }
+  #aw-v22541-proof .al-proof{
+    font-size:7.5px!important;
+    letter-spacing:.045em!important;
+    white-space:normal!important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #aw-v22541-proof .al-live::before{
+    animation:none!important;
+    transform:none!important;
+    box-shadow:none!important;
   }
 }
 </style>
