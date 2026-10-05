@@ -261,6 +261,8 @@ jobs:
                 matrixOverflowX: getComputedStyle(matrix || document.body).overflowX,
                 matrixOverflowY: getComputedStyle(matrix || document.body).overflowY,
                 headerText,
+                periodRangeText: main.innerText.match(/Periode\\s+1\\s*-\\s*6/i)?.[0] || null,
+                periodHeaderCount: matrix?.querySelectorAll('thead th')?.length ?? 0,
                 periodSummaryVisible: !!periodSummaryHeading,
                 periodSummaryCards: periodSummary ? periodSummary.querySelectorAll('.grid > div').length : 0,
                 horizontalOverflow: document.documentElement.scrollWidth >
@@ -271,8 +273,11 @@ jobs:
             if (!iuranLayout.found || !iuranLayout.addFound || !iuranLayout.matrixFound) {
               throw new Error(`${name}: Iuran action/matrix structure is incomplete: ${JSON.stringify(iuranLayout)}`);
             }
-            if (!/Periode\\s+1\\s*-\\s*6/i.test(iuranLayout.headerText)) {
-              throw new Error(`${name}: Iuran period range header is missing/non-canonical: ${JSON.stringify(iuranLayout)}`);
+            if (!iuranLayout.periodRangeText) {
+              throw new Error(`${name}: Iuran period range control is missing/non-canonical: ${JSON.stringify(iuranLayout)}`);
+            }
+            if (iuranLayout.periodHeaderCount < 7) {
+              throw new Error(`${name}: Iuran matrix does not render the expected period columns plus total: ${JSON.stringify(iuranLayout)}`);
             }
             if (!iuranLayout.periodSummaryVisible || iuranLayout.periodSummaryCards < 2) {
               throw new Error(`${name}: Iuran period recap collapsed/does not render multiple period cards: ${JSON.stringify(iuranLayout)}`);
