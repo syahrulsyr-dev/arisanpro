@@ -51,6 +51,8 @@ jobs:
             });
 
             await context.addInitScript(() => {
+              if (sessionStorage.getItem('__aw_test_stale_seeded') === '1') return;
+              sessionStorage.setItem('__aw_test_stale_seeded', '1');
               localStorage.setItem('arisan_session', JSON.stringify({
                 username: 'stale-admin',
                 email: 'stale-admin@example.invalid',
