@@ -729,7 +729,23 @@ jobs:
               }
             }
 
-            // Targeted visual-audit gate: capture the actual Laporan tab after the DOM contract passes.\n            const laporanMain = page.locator('main[data-aw-page="laporan"]').first();\n            await laporanMain.waitFor({ state: 'visible', timeout: 10000 });\n            await laporanMain.screenshot({\n              path: `test-results/\${name}-laporan.png`,\n              fullPage: true, animations: 'disabled'\n            });\n            const laporanPanels = page.locator('main[data-aw-page="laporan"] .aw-v2-report-panel');\n            const laporanPanelCount = await laporanPanels.count();\n            for (let i = 0; i < Math.min(laporanPanelCount, 2); i++) {\n              await laporanPanels.nth(i).screenshot({\n                path: `test-results/\${name}-laporan-panel-${i + 1}.png`,\n                animations: 'disabled'\n              });\n            }\n\n            phase = 'finance-workspace';
+            // Targeted visual-audit gate: capture the actual Laporan tab after the DOM contract passes.
+            const laporanMain = page.locator('main[data-aw-page="laporan"]').first();
+            await laporanMain.waitFor({ state: 'visible', timeout: 10000 });
+            await laporanMain.screenshot({
+              path: `test-results/${name}-laporan.png`,
+              fullPage: true, animations: 'disabled'
+            });
+            const laporanPanels = page.locator('main[data-aw-page="laporan"] .aw-v2-report-panel');
+            const laporanPanelCount = await laporanPanels.count();
+            for (let i = 0; i < Math.min(laporanPanelCount, 2); i++) {
+              await laporanPanels.nth(i).screenshot({
+                path: `test-results/${name}-laporan-panel-${i + 1}.png`,
+                animations: 'disabled'
+              });
+            }
+
+            phase = 'finance-workspace';
             const financeControllerReady = await page.evaluate(() =>
               typeof window.__AW_FINANCE_NAV_OPEN__ === 'function'
             );
