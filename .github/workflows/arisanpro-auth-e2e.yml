@@ -2,6 +2,12 @@ name: ArisanPro Authenticated E2E
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - fix/dashboard-ui-functional-hardening-v1
+    paths:
+      - index.html
+      - .github/workflows/arisanpro-auth-e2e.yml
 
 permissions:
   contents: read
@@ -13,7 +19,7 @@ jobs:
     env:
       ARISANPRO_E2E_EMAIL: ${{ secrets.ARISANPRO_E2E_EMAIL }}
       ARISANPRO_E2E_PASSWORD: ${{ secrets.ARISANPRO_E2E_PASSWORD }}
-      ARISANPRO_E2E_TARGET: https://syahrulsyr-dev.github.io/arisanpro/
+      ARISANPRO_E2E_TARGET: http://127.0.0.1:4173/
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -31,6 +37,14 @@ jobs:
       - name: Run authenticated admin E2E on desktop/mobile
         run: |
           mkdir -p test-results
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/arisanpro-auth-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:4173/ > /dev/null || { cat /tmp/arisanpro-auth-http.log; exit 1; }
           cat > auth-e2e.cjs <<'NODE'
           const { chromium } = require('playwright');
           const fs = require('fs');
@@ -132,6 +146,85 @@ jobs:
               path: `test-results/${name}-authenticated-dashboard.png`,
               fullPage: true, animations: 'disabled'
             });
+
+            phase = 'dashboard-contract';
+            const dashboardState = await page.evaluate(() => {
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return !el.hidden && r.width > 0 && r.height > 0 &&
+                  s.display !== 'none' && s.visibility !== 'hidden';
+              };
+              const dash = document.querySelector('#root main[data-aw-page="dashboard"]');
+              const visiblePages = [...document.querySelectorAll('#root main[data-aw-page]')]
+                .filter(visible)
+                .map(el => el.getAttribute('data-aw-page'));
+              const buttons = [...(dash?.querySelectorAll('button') || [])]
+                .map(b => (b.textContent || '').replace(/\s+/g, ' ').trim());
+              const quickLabels = ['Tambah Anggota', 'Catat Iuran', 'Kocok Arisan', 'Bagikan Link'];
+              const quick = quickLabels.map(label => ({
+                label,
+                found: buttons.includes(label),
+                visible: [...(dash?.querySelectorAll('button') || [])]
+                  .filter(b => (b.textContent || '').replace(/\s+/g, ' ').trim() === label)
+                  .some(visible)
+              }));
+              const chart = dash?.querySelector('.flex.items-end.gap-2.h-\\[160px\\]');
+              const text = dash?.innerText || '';
+              return {
+                dashboardVisible: visible(dash),
+                visiblePages,
+                quick,
+                chartVisible: visible(chart),
+                hasRecentPayments: /Iuran Terbaru/i.test(text),
+                hasWinnerHistory: /Riwayat Pemenang - Dashboard/i.test(text),
+                hasUnpaidPanel: /Yang Belum Bayar/i.test(text),
+                visibleNaN: /\\bNaN\\b|Rp\\s*NaN/i.test(text),
+                horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+              };
+            });
+            if (!dashboardState.dashboardVisible ||
+                JSON.stringify(dashboardState.visiblePages) !== JSON.stringify(['dashboard']) ||
+                dashboardState.quick.some(x => !x.found || !x.visible) ||
+                !dashboardState.chartVisible ||
+                !dashboardState.hasRecentPayments ||
+                !dashboardState.hasWinnerHistory ||
+                !dashboardState.hasUnpaidPanel ||
+                dashboardState.visibleNaN ||
+                dashboardState.horizontalOverflow) {
+              throw new Error(`${name}: Dashboard contract failed: ${JSON.stringify(dashboardState)}`);
+            }
+
+            for (const action of ['Kocok Arisan', 'Bagikan Link', 'Lihat Matriks Lengkap']) {
+              const button = await findActionButton(page, action);
+              await button.scrollIntoViewIfNeeded();
+              await button.click();
+              await page.waitForTimeout(700);
+              const expectedPage = action === 'Kocok Arisan' ? 'undian' : action === 'Bagikan Link' ? 'share' : 'iuran';
+              const targetState = await page.evaluate(pageKey => {
+                const el = document.querySelector(`#root main[data-aw-page="${pageKey}"]`);
+                const r = el?.getBoundingClientRect();
+                const s = el ? getComputedStyle(el) : null;
+                return {
+                  current: el?.getAttribute('data-aw-page') || null,
+                  visible: !!el && !!r && r.width > 0 && r.height > 0 &&
+                    s.display !== 'none' && s.visibility !== 'hidden' && !el.hidden
+                };
+              }, expectedPage);
+              if (!targetState.visible) {
+                throw new Error(`${name}: Dashboard action "${action}" did not navigate to "${expectedPage}": ${JSON.stringify(targetState)}`);
+              }
+              const dashNav = await findActionButton(page, 'Dashboard').catch(() => null);
+              if (!dashNav) throw new Error(`${name}: Dashboard navigation control was not found after "${action}".`);
+              await dashNav.click();
+              await page.waitForFunction(() => {
+                const el = document.querySelector('#root main[data-aw-page="dashboard"]');
+                if (!el) return false;
+                const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden' && !el.hidden;
+              }, { timeout: 5000 });
+            }
 
             phase = 'member-quick-action';
             const addMemberQuick = await findActionButton(page, 'Tambah Anggota');
