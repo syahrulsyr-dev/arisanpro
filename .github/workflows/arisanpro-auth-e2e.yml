@@ -610,6 +610,100 @@ jobs:
               }
             }
 
+            phase = 'finance-workspace';
+            await clickNav(page, 'Keuangan');
+            await page.waitForTimeout(900);
+
+            const financeLayout = await page.evaluate(() => {
+              const workspace = document.getElementById('aw-finance-workspace');
+              const content = document.getElementById('aw-fin-content');
+              const ledger = document.getElementById('aw-v22541-proof');
+              const tableWrap = ledger?.querySelector('.al-table-wrap');
+              const table = ledger?.querySelector('.al-table');
+              const head = ledger?.querySelector('.al-head');
+              const title = ledger?.querySelector('.al-title');
+              const body = ledger?.querySelector('.al-body');
+              const actionCards = ledger?.querySelectorAll('.al-actions .al-action') || [];
+              const summaryCards = ledger?.querySelectorAll('.al-summary .al-card') || [];
+
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
+              const measure = el => {
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return {
+                  width: r.width,
+                  height: r.height,
+                  clientWidth: el.clientWidth,
+                  clientHeight: el.clientHeight,
+                  scrollWidth: el.scrollWidth,
+                  scrollHeight: el.scrollHeight,
+                  overflowX: s.overflowX,
+                  overflowY: s.overflowY,
+                  maxHeight: parseFloat(s.maxHeight) || 0
+                };
+              };
+
+              return {
+                financeOpen: document.body.classList.contains('aw-finance-open'),
+                workspaceVisible: visible(workspace),
+                contentVisible: visible(content),
+                ledgerVisible: visible(ledger),
+                workspace: measure(workspace),
+                ledger: measure(ledger),
+                head: measure(head),
+                body: measure(body),
+                tableWrap: measure(tableWrap),
+                table: measure(table),
+                titleFontSize: title ? getComputedStyle(title).fontSize : null,
+                summaryCardCount: summaryCards.length,
+                actionCardCount: actionCards.length,
+                horizontalOverflow: document.documentElement.scrollWidth >
+                  document.documentElement.clientWidth + 1
+              };
+            });
+
+            if (!financeLayout.financeOpen ||
+                !financeLayout.workspaceVisible ||
+                !financeLayout.contentVisible ||
+                !financeLayout.ledgerVisible) {
+              throw new Error(`${name}: Finance Workspace/Ledger did not open correctly: ${JSON.stringify(financeLayout)}`);
+            }
+            if (financeLayout.summaryCardCount < 4 || financeLayout.actionCardCount < 4) {
+              throw new Error(`${name}: Finance Ledger lost summary/action cards: ${JSON.stringify(financeLayout)}`);
+            }
+            if (!financeLayout.tableWrap ||
+                financeLayout.tableWrap.clientWidth <= 0 ||
+                financeLayout.tableWrap.clientHeight <= 0 ||
+                !/auto|scroll/i.test(financeLayout.tableWrap.overflowX) ||
+                !/auto|scroll/i.test(financeLayout.tableWrap.overflowY)) {
+              throw new Error(`${name}: Finance Ledger table does not own an internal scroll container: ${JSON.stringify(financeLayout)}`);
+            }
+            if (name === 'mobile') {
+              if (financeLayout.workspace.width > innerWidth + 1 ||
+                  financeLayout.ledger.width > innerWidth + 1) {
+                throw new Error(`${name}: Finance Ledger is wider than the mobile viewport: ${JSON.stringify(financeLayout)}`);
+              }
+              if (!financeLayout.titleFontSize || parseFloat(financeLayout.titleFontSize) > 20) {
+                throw new Error(`${name}: Finance Ledger title is disproportionately large on mobile: ${JSON.stringify(financeLayout)}`);
+              }
+              if (financeLayout.tableWrap.scrollWidth <= financeLayout.tableWrap.clientWidth) {
+                throw new Error(`${name}: Finance Ledger history table lost horizontal internal scrolling on mobile: ${JSON.stringify(financeLayout)}`);
+              }
+            }
+            if (financeLayout.horizontalOverflow) {
+              throw new Error(`${name}: Finance Workspace caused page-level horizontal overflow: ${JSON.stringify(financeLayout)}`);
+            }
+
+            await clickNav(page, 'Laporan');
+            await page.waitForTimeout(500);
+
             phase = 'payment-form';
             await clickNav(page, 'Iuran');
             await page.waitForTimeout(700);
@@ -677,6 +771,7 @@ jobs:
               iuranLayout,
               undianAudit,
               laporanLayout,
+              financeLayout,
               tambahAnggotaFormVisible: memberFormVisible,
               catatIuranFormVisible: paymentFormVisible,
               horizontalOverflow: finalState.horizontalOverflow,
