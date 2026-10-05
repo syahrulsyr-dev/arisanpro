@@ -105,6 +105,25 @@ jobs:
               }
               if (initialText.trim().length < 50) throw new Error(`${name}: page body is unexpectedly empty`);
 
+              // Regression: the login-page warga button must enter the canonical public route.
+              phase = 'public-login-entry';
+              const wargaButton = page.getByRole('button', { name: /Lihat sebagai Warga/i }).first();
+              await wargaButton.waitFor({ state: 'visible', timeout: 10000 });
+              await wargaButton.click();
+              await page.waitForURL(/\\?view=public/i, { timeout: 15000 });
+              await page.waitForTimeout(4000);
+              const publicEntrySettledText = await page.locator('body').innerText().catch(() => '');
+              if (!/\\?view=public/i.test(page.url())) {
+                throw new Error(name + ': warga button did not navigate to public route: ' + page.url());
+              }
+              if (/Memuat data warga/i.test(publicEntrySettledText) && !/Gagal memuat data warga|Data Keuangan Belum Tersedia/i.test(publicEntrySettledText)) {
+                throw new Error(name + ': warga button reached public route but remained stuck on "Memuat data warga…"');
+              }
+
+              // Return to the normal entry page; the rest of this smoke test owns the public route below.
+              await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 60000 });
+              await page.waitForTimeout(1000);
+
               const winnerPotAudit = await page.evaluate(() => {
                 const engine = window.__AW_FINANCIAL_ENGINE__;
                 const members = [
