@@ -676,8 +676,8 @@ jobs:
               throw new Error(`${name}: Finance Ledger table does not own an internal scroll container: ${JSON.stringify(financeLayout)}`);
             }
             if (name === 'mobile') {
-              if (financeLayout.workspace.width > innerWidth + 1 ||
-                  financeLayout.ledger.width > innerWidth + 1) {
+              if (financeLayout.workspace.width > 390 + 1 ||
+                  financeLayout.ledger.width > 390 + 1) {
                 throw new Error(`${name}: Finance Ledger is wider than the mobile viewport: ${JSON.stringify(financeLayout)}`);
               }
               if (!financeLayout.titleFontSize || parseFloat(financeLayout.titleFontSize) > 20) {
