@@ -2,6 +2,12 @@ name: ArisanPro Authenticated E2E
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ui-hardening/dashboard-to-finance
+    paths:
+      - index.html
+      - .github/workflows/arisanpro-auth-e2e.yml
 
 permissions:
   contents: read
