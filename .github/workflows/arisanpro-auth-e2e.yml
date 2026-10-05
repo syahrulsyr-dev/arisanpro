@@ -263,7 +263,7 @@ jobs:
                 matrixOverflowX: getComputedStyle(matrix || document.body).overflowX,
                 matrixOverflowY: getComputedStyle(matrix || document.body).overflowY,
                 headerText,
-                periodRangeText: main.innerText.match(/Periode\\s+1\\s*-\\s*6/i)?.[0] || null,
+                periodRangeText: main.innerText.match(/Periode\s+1\s*-\s*6/i)?.[0] || null,
                 periodHeaderCount: matrix?.querySelectorAll('thead th')?.length ?? 0,
                 periodSummaryVisible: !!periodSummaryHeading,
                 periodSummaryCards: periodSummary ? periodSummary.querySelectorAll('.grid > div').length : 0,
