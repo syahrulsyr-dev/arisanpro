@@ -158,6 +158,61 @@ jobs:
               throw new Error('Authenticated session was not established.');
             }
 
+            // Regression: Supabase session disappears while a stale app-level
+            // arisan_session remains. The app must clear it and return to login.
+            phase = 'auth-stale-session-guard';
+            await page.evaluate(() => {
+              localStorage.setItem('arisan_session', JSON.stringify({
+                username: 'stale-admin',
+                email: 'stale-admin@example.invalid',
+                role: 'admin',
+                id: 'stale-admin-id'
+              }));
+              localStorage.setItem('arisan_supabase_session', JSON.stringify({
+                access_token: 'expired-test-token',
+                refresh_token: 'expired-test-refresh-token'
+              }));
+              for (const key of Object.keys(localStorage)) {
+                if (/^sb-.*-auth-token$/i.test(key)) localStorage.removeItem(key);
+              }
+              location.reload();
+            });
+
+            await page.waitForLoadState('domcontentloaded').catch(() => {});
+            const loginAgain = page.locator('input#email').first();
+            await loginAgain.waitFor({ state: 'visible', timeout: 20000 });
+
+            const staleGuardState = await page.evaluate(() => ({
+              loginVisible: !!document.querySelector('input#email') &&
+                getComputedStyle(document.querySelector('input#email')).display !== 'none',
+              dashboardVisible: !!document.querySelector('#root main[data-aw-page="dashboard"]') &&
+                (() => {
+                  const el=document.querySelector('#root main[data-aw-page="dashboard"]');
+                  const r=el.getBoundingClientRect(),s=getComputedStyle(el);
+                  return r.width>0 && r.height>0 && s.display!=='none' && s.visibility!=='hidden' && !el.hidden;
+                })(),
+              localAuthSession: !!localStorage.getItem('arisan_session'),
+              supabaseAuthReady: window.__awSupabaseAuthReady === true
+            }));
+
+            if (!staleGuardState.loginVisible ||
+                staleGuardState.dashboardVisible ||
+                staleGuardState.localAuthSession ||
+                staleGuardState.supabaseAuthReady) {
+              throw new Error(`${name}: stale Supabase session guard failed: ${JSON.stringify(staleGuardState)}`);
+            }
+
+            const loginPasswordAgain = page.locator('input[type="password"]').first();
+            await loginAgain.fill(email);
+            await loginPasswordAgain.fill(password);
+            phase = 'reauth-after-stale-session-guard';
+            await page.getByRole('button', { name: /Masuk Dashboard/i }).first().click();
+            await page.waitForFunction(() => {
+              const session = localStorage.getItem('arisan_session');
+              return !!session || window.__awSupabaseAuthReady === true;
+            }, { timeout: 30000 });
+            await page.waitForTimeout(1200);
+
             await page.screenshot({
               path: `test-results/${name}-authenticated-dashboard.png`,
               fullPage: true, animations: 'disabled'
