@@ -174,13 +174,104 @@ jobs:
 
             phase = 'navigation';
 
-            for (const tab of ['Anggota', 'Iuran', 'Undian', 'Laporan']) {
+            const tabContract = await page.evaluate(() => {
+              const pages = ['dashboard','anggota','iuran','undian','laporan'];
+              const visible = pages.filter(key => {
+                const el = document.querySelector(`#root main[data-aw-page="${key}"]`);
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden' && !el.hidden;
+              });
+              return { pagesPresent: pages.filter(key => !!document.querySelector(`#root main[data-aw-page="${key}"]`)), visible };
+            });
+            if (tabContract.pagesPresent.length < 5) {
+              throw new Error(`${name}: expected all primary app pages to exist: ${JSON.stringify(tabContract)}`);
+            }
+
+            for (const tab of ['Dashboard', 'Anggota', 'Iuran', 'Undian', 'Laporan']) {
               await clickNav(page, tab);
               await page.waitForTimeout(700);
               const text = await page.locator('body').innerText();
               if (!new RegExp(tab, 'i').test(text)) {
                 throw new Error(`${name}: tab "${tab}" did not render expected content.`);
               }
+              const pageState = await page.evaluate(() => {
+                const pages = [...document.querySelectorAll('#root main[data-aw-page]')].filter(el => {
+                  const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+                  return r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden' && !el.hidden;
+                });
+                return {
+                  visiblePages: pages.map(el => el.getAttribute('data-aw-page')),
+                  overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+                };
+              });
+              if (pageState.visiblePages.length !== 1 || pageState.overflow) {
+                throw new Error(`${name}: invalid app page visibility/overflow after "${tab}": ${JSON.stringify(pageState)}`);
+              }
+            }
+
+            phase = 'finance-navigation';
+            await clickNav(page, 'Keuangan');
+            await page.waitForTimeout(1000);
+            const financeState = await page.evaluate(() => {
+              const w = document.querySelector('#aw-finance-workspace');
+              const r = w?.getBoundingClientRect();
+              const s = w ? getComputedStyle(w) : null;
+              return {
+                exists: !!w,
+                visible: !!w && !!r && r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden',
+                rootHidden: (() => {
+                  const root = document.querySelector('#root');
+                  if (!root) return true;
+                  const rs = getComputedStyle(root);
+                  return document.body.classList.contains('aw-finance-open') &&
+                    (rs.display === 'none' || root.getBoundingClientRect().height === 0);
+                })(),
+                modules: [...document.querySelectorAll('#aw-fin-content > *')].map(x => x.id).filter(Boolean)
+              };
+            });
+            if (!financeState.exists || !financeState.visible || !financeState.rootHidden) {
+              throw new Error(`${name}: finance workspace did not open as a dedicated UI surface: ${JSON.stringify(financeState)}`);
+            }
+
+            for (const mod of ['ledger', 'income', 'expense', 'audit', 'recon']) {
+              const button = page.locator(`#aw-finance-workspace [data-fin-jump="${mod}"]`).first();
+              if (!(await button.count())) throw new Error(`${name}: finance module button missing: ${mod}`);
+              await button.click();
+              await page.waitForTimeout(250);
+              const active = await page.evaluate(key => {
+                const b = document.querySelector(`#aw-finance-workspace [data-fin-jump="${key}"]`);
+                return {
+                  active: !!b && b.classList.contains('aw-fin-tool-active'),
+                  target: (() => {
+                    const map = {ledger:'aw-admin-ledger',income:'aw-inc-panel',expense:'aw-exp-panel',audit:'aw-v223-audit',recon:'aw-v224-reconciliation'};
+                    const el = document.getElementById(map[key]);
+                    return !!el && el.parentElement?.id === 'aw-fin-content';
+                  })()
+                };
+              }, mod);
+              if (!active.active || !active.target) {
+                throw new Error(`${name}: finance module "${mod}" did not activate/mount correctly: ${JSON.stringify(active)}`);
+              }
+            }
+
+            const closeFinance = page.locator('#aw-fin-close').first();
+            if (!(await closeFinance.count())) throw new Error(`${name}: finance close button missing`);
+            await closeFinance.click();
+            await page.waitForTimeout(500);
+            const closedFinance = await page.evaluate(() => ({
+              open: document.body.classList.contains('aw-finance-open'),
+              workspaceDisplay: getComputedStyle(document.querySelector('#aw-finance-workspace') || document.body).display,
+              rootVisible: (() => {
+                const root = document.querySelector('#root');
+                if (!root) return false;
+                const r = root.getBoundingClientRect(), s = getComputedStyle(root);
+                return r.width > 0 && r.height > 0 && s.display !== 'none';
+              })()
+            }));
+            if (closedFinance.open || !closedFinance.rootVisible) {
+              throw new Error(`${name}: finance workspace did not close cleanly: ${JSON.stringify(closedFinance)}`);
             }
 
             await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
