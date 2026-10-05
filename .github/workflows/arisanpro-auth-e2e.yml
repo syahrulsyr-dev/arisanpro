@@ -763,10 +763,8 @@ jobs:
             }
 
             phase = 'share-copy';
+            await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
             const copyButton = page.getByRole('button', { name: /^Copy Link$/i }).first();
-            await page.evaluate(() => {
-              navigator.clipboard?.writeText?.('about:blank').catch(() => {});
-            }).catch(() => {});
             await copyButton.click();
             await page.waitForTimeout(300);
 
