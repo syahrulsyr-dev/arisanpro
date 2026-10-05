@@ -213,9 +213,7 @@ jobs:
                 secondCardWidth: secondCard?.width ?? 0,
                 titleFontSize: firstName ? getComputedStyle(firstName).fontSize : null,
                 horizontalOverflow: document.documentElement.scrollWidth >
-                  document.documentElement.clientWidth + 1,
-                latestMaxHeight: parseFloat(getComputedStyle(latestScroll || document.body).maxHeight) || 0,
-                detailMaxHeight: parseFloat(getComputedStyle(detailScroll || document.body).maxHeight) || 0
+                  document.documentElement.clientWidth + 1
               };
             });
 
@@ -487,7 +485,9 @@ jobs:
                 headingTexts: [...main.querySelectorAll('h3,h4')].map(x => (x.textContent || '').trim())
                   .filter(Boolean).filter(x => /Laporan Keuangan Profesional|Transaksi Kas Terbaru|Riwayat Transaksi Detail/i.test(x)),
                 horizontalOverflow: document.documentElement.scrollWidth >
-                  document.documentElement.clientWidth + 1
+                  document.documentElement.clientWidth + 1,
+                latestMaxHeight: parseFloat(getComputedStyle(latestScroll || document.body).maxHeight) || 0,
+                detailMaxHeight: parseFloat(getComputedStyle(detailScroll || document.body).maxHeight) || 0
               };
             });
 
