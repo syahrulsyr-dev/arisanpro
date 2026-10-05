@@ -272,7 +272,7 @@ jobs:
                   target: (() => {
                     const map = {ledger:'aw-admin-ledger',income:'aw-inc-panel',expense:'aw-exp-panel',audit:'aw-v223-audit',recon:'aw-v224-reconciliation'};
                     const el = document.getElementById(map[key]);
-                    return !!el && el.parentElement?.id === 'aw-fin-content';
+                    return !!el && !!el.closest('#aw-fin-content');
                   })()
                 };
               }, mod);
