@@ -179,8 +179,10 @@ jobs:
             });
 
             await page.waitForLoadState('domcontentloaded').catch(() => {});
+            const loginHeading = page.getByRole('heading', { name: /Masuk sebagai Pengelola/i }).first();
+            await loginHeading.waitFor({ state: 'visible', timeout: 20000 });
             const loginAgain = page.locator('input#email').first();
-            await loginAgain.waitFor({ state: 'visible', timeout: 20000 });
+            await loginAgain.waitFor({ state: 'visible', timeout: 10000 });
 
             const staleGuardState = await page.evaluate(() => ({
               loginVisible: !!document.querySelector('input#email') &&
