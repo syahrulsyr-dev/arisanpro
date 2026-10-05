@@ -7281,6 +7281,251 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .aw-
   }
 }
 </style>
+
+<script id="aw-dashboard-functional-hardening-v1">
+(function(){
+  'use strict';
+  if(window.__AW_DASHBOARD_FUNCTIONAL_HARDENING_V1__) return;
+  window.__AW_DASHBOARD_FUNCTIONAL_HARDENING_V1__=true;
+
+  const DASH='dashboard';
+  const ACTION_LABELS={
+    'Tambah Anggota':'member',
+    'Catat Iuran':'payment',
+    'Kocok Arisan':'draw',
+    'Bagikan Link':'share',
+    'Lihat Matriks Lengkap':'iuran'
+  };
+  const norm=s=>String(s||'').replace(/\s+/g,' ').trim();
+  const body=()=>document.body;
+  const isAdmin=()=>body()?.classList.contains('aw-authenticated')&&!body()?.classList.contains('aw-public-live');
+  const page=name=>document.querySelector('#root main[data-aw-page="'+name+'"]');
+  const visible=el=>{
+    if(!el) return false;
+    const r=el.getBoundingClientRect(), s=getComputedStyle(el);
+    return !el.hidden && r.width>0 && r.height>0 && s.display!=='none' && s.visibility!=='hidden';
+  };
+  const current=()=>[...document.querySelectorAll('#root main[data-aw-page]')].find(visible)?.getAttribute('data-aw-page')||null;
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+  async function waitForPage(name,timeout=3500){
+    const end=Date.now()+timeout;
+    while(Date.now()<end){
+      const p=page(name);
+      if(p&&visible(p)) return p;
+      await wait(50);
+    }
+    return page(name);
+  }
+
+  async function getUiApi(timeout=3000){
+    const end=Date.now()+timeout;
+    while(Date.now()<end){
+      if(window.__arisanUiActions?.goToPage || window.__arisanModalSetters?.setPage) {
+        return window.__arisanUiActions||window.__arisanModalSetters||null;
+      }
+      await wait(50);
+    }
+    return window.__arisanUiActions||window.__arisanModalSetters||null;
+  }
+
+  async function navigate(name){
+    if(!isAdmin()) return false;
+    const api=await getUiApi();
+    if(!api) return false;
+    try{
+      if(name===current()) {
+        window.scrollTo({top:0,left:0,behavior:'auto'});
+        return true;
+      }
+      if(typeof window.__AW_FINANCE_NAV_CLOSE__==='function') {
+        try{ window.__AW_FINANCE_NAV_CLOSE__(); }catch{}
+      }
+      const go=typeof api.goToPage==='function'
+        ? api.goToPage
+        : (typeof api.setPage==='function' ? api.setPage : null);
+      if(!go) return false;
+      go(name);
+      const target=await waitForPage(name);
+      if(!target||!visible(target)) return false;
+      window.scrollTo({top:0,left:0,behavior:'auto'});
+      return true;
+    }catch(err){
+      console.error('❌ Dashboard navigation hardening:',name,err);
+      return false;
+    }
+  }
+
+  async function openMemberModal(){
+    const api=window.__arisanModalSetters||{};
+    if(typeof api.member!=='function') return false;
+    try{
+      api.setMemberForm?.({});
+      api.member(true);
+      await wait(80);
+      return [...document.querySelectorAll('#root .fixed.inset-0,.aw-modal-fixed,.aw-v121-member-modal')].some(visible);
+    }catch(err){
+      console.error('❌ Dashboard member modal hardening:',err);
+      return false;
+    }
+  }
+
+  function activePeriodId(){
+    try{
+      const data=window.__v435LastData||{};
+      const periods=Array.isArray(data.periods)?data.periods:[];
+      const p=periods.find(x=>/^(aktif|open)$/i.test(String(x?.status||'')))||periods[0];
+      return p?.id||'';
+    }catch{return ''}
+  }
+
+  async function openPaymentModal(){
+    const api=window.__arisanModalSetters||{};
+    if(typeof api.payment!=='function') return false;
+    try{
+      api.setPaymentForm?.({
+        memberId:'',
+        periodId:activePeriodId(),
+        tgl:new Date().toISOString().slice(0,10),
+        metode:'cash',
+        catatan:''
+      });
+      api.payment(true);
+      await wait(80);
+      return [...document.querySelectorAll('#root .fixed.inset-0,.aw-modal-fixed,.aw-v121-iuran-payment-modal')].some(visible);
+    }catch(err){
+      console.error('❌ Dashboard payment modal hardening:',err);
+      return false;
+    }
+  }
+
+  async function run(label){
+    if(!isAdmin()) return {ok:false,error:'not-authenticated'};
+    const kind=ACTION_LABELS[label];
+    if(!kind) return {ok:false,error:'unknown-action'};
+    let target=kind==='member'?'anggota':kind==='payment'?'iuran':kind==='draw'?'undian':kind==='share'?'share':'iuran';
+    const navOk=await navigate(target);
+    if(!navOk) return {ok:false,label,target,error:'navigation-failed'};
+    let modal=false;
+    if(kind==='member') modal=await openMemberModal();
+    if(kind==='payment') modal=await openPaymentModal();
+    return {ok:kind==='member'||kind==='payment'?modal:true,label,target,modal};
+  }
+
+  function bindDashboardButtons(){
+    const root=document.querySelector('#root');
+    const dash=page(DASH);
+    if(!root||!dash||!visible(dash)) return;
+    dash.querySelectorAll('button').forEach(btn=>{
+      const label=norm(btn.textContent);
+      const kind=ACTION_LABELS[label];
+      if(!kind) return;
+      btn.setAttribute('data-aw-dashboard-action',kind);
+      btn.setAttribute('aria-label',label);
+    });
+  }
+
+  // Desktop/tablet: own the dashboard action click at capture time so React's
+  // original handler cannot race navigation + modal rendering.
+  document.addEventListener('click',async e=>{
+    if(window.matchMedia?.('(max-width:767px)').matches===true) return;
+    if(!isAdmin()) return;
+    const btn=e.target?.closest?.('#root main[data-aw-page="dashboard"] button[data-aw-dashboard-action]');
+    if(!btn) return;
+    const label=norm(btn.textContent);
+    const kind=btn.getAttribute('data-aw-dashboard-action');
+    if(!ACTION_LABELS[label]) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if(btn.dataset.awDashboardBusy==='1') return;
+    btn.dataset.awDashboardBusy='1';
+    try{
+      const result=await run(label);
+      if(!result.ok) console.warn('⚠️ Dashboard action gagal:',result);
+    }finally{
+      delete btn.dataset.awDashboardBusy;
+    }
+  },true);
+
+  const schedule=()=>{
+    clearTimeout(schedule.t);
+    schedule.t=setTimeout(bindDashboardButtons,30);
+  };
+  new MutationObserver(schedule).observe(document.querySelector('#root')||document.body,{childList:true,subtree:true});
+  window.addEventListener('resize',schedule,{passive:true});
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',schedule,{once:true});
+  else schedule();
+
+  window.__AW_DASHBOARD_FUNCTIONAL_API__={
+    current,
+    navigate,
+    run,
+    diagnostic(){
+      const dash=page(DASH);
+      const visiblePages=[...document.querySelectorAll('#root main[data-aw-page]')].filter(visible).map(x=>x.getAttribute('data-aw-page'));
+      const chart=dash?.querySelector('.flex.items-end.gap-2.h-\\[160px\\]');
+      const quick=[...dash?.querySelectorAll('button[data-aw-dashboard-action]')||[]].map(b=>({
+        label:norm(b.textContent),
+        kind:b.getAttribute('data-aw-dashboard-action'),
+        visible:visible(b)
+      }));
+      const texts=dash?norm(dash.innerText):'';
+      return {
+        authenticated:isAdmin(),
+        current:current(),
+        dashboardVisible:visible(dash),
+        visiblePages,
+        quickActions:quick,
+        chartVisible:visible(chart),
+        hasRecentPayments:/Iuran Terbaru/i.test(texts),
+        hasWinnerHistory:/Riwayat Pemenang - Dashboard/i.test(texts),
+        hasUnpaidPanel:/Yang Belum Bayar/i.test(texts),
+        horizontalOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1,
+        visibleNaN:/\\bNaN\\b|Rp\\s*NaN/i.test(texts)
+      };
+    }
+  };
+})();
+</script>
+<style id="aw-dashboard-functional-hardening-v1-css">
+body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"]{
+  min-width:0!important;max-width:100%!important;box-sizing:border-box!important;overflow-x:hidden!important;
+}
+body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .overflow-auto{
+  min-width:0!important;max-width:100%!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior:contain;
+}
+body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .space-y-2.max-h-\[380px\],
+body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .space-y-2.max-h-\[220px\]{
+  overscroll-behavior:contain;
+}
+@media(max-width:767px){
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .grid.grid-cols-2.lg\:grid-cols-4{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .grid.lg\:grid-cols-3{
+    grid-template-columns:1fr!important;gap:10px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .grid.lg\:grid-cols-3>*{
+    min-width:0!important;max-width:100%!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .grid.grid-cols-2.lg\:grid-cols-4>div{
+    min-width:0!important;overflow:hidden!important;padding:11px!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .grid.grid-cols-2.lg\:grid-cols-4 .text-\[11px\]{
+    font-size:10px!important;line-height:1.2!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .grid.grid-cols-2.lg\:grid-cols-4 .text-\[18px\]{
+    font-size:16px!important;line-height:1.25!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] .flex.items-end.gap-2.h-\[160px\]{
+    min-width:0!important;max-width:100%!important;box-sizing:border-box!important;
+  }
+  body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] [data-aw-dashboard-action]{
+    min-width:0!important;touch-action:manipulation;
+  }
+}
+</style>
+
 </body>
 </html>
 
