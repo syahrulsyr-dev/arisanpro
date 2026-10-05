@@ -1790,7 +1790,7 @@ return Object.freeze({num,periodNom,paymentNom,resolveCurrentPeriod,calculate,bu
 })();
 
 function TransactionDetailPanel({iurans=[],members=[],periods=[],settings={}}){
- const [open,setOpen]=N.useState(false),[periodId,setPeriodId]=N.useState("all"),[from,setFrom]=N.useState(""),[to,setTo]=N.useState("");
+ const [open,setOpen]=N.useState(true),[periodId,setPeriodId]=N.useState("all"),[from,setFrom]=N.useState(""),[to,setTo]=N.useState("");
  const money=v=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",minimumFractionDigits:0,maximumFractionDigits:0}).format(Number(v)||0);
  const rows=iurans.filter(o=>["lunas","cicilan"].includes(String(o.status||"").toLowerCase())).sort((a,b)=>(b.tglBayar||"").localeCompare(a.tglBayar||""));
  const filtered=rows.filter(o=>{const d=String(o.tglBayar||"").slice(0,10);return (periodId==="all"||String(o.periodId)===String(periodId))&&(!from||d>=from)&&(!to||d<=to)});
@@ -1798,7 +1798,7 @@ function TransactionDetailPanel({iurans=[],members=[],periods=[],settings={}}){
   c("div",{className:"aw-v2-panel-head",children:[
    c("div",{children:[i("h4",{className:"font-bold",children:"Riwayat Transaksi Detail"}),i("div",{className:"aw-pr-sub",children:"Rincian pembayaran iuran yang tercatat."})]}),
    c("div",{className:"aw-v2-panel-actions",children:[
-    c("button",{onClick:()=>window.print(),className:"aw-pr-btn aw-v2-print",type:"button",children:[i(xt,{className:"w-4 h-4"}),"Cetak"]}),
+    c("button",{onClick:()=>window.print(),className:"aw-pr-btn aw-v2-print",type:"button",children:[i(xt,{className:"w-4 h-4"}),"Cetak Laporan"]}),
     c("button",{onClick:()=>setOpen(v=>!v),className:"aw-pr-btn aw-v2-panel-toggle",type:"button",children:open?"Sembunyikan Panel":"Tampilkan Panel"})
    ]})
   ]}),
@@ -1823,7 +1823,7 @@ function TransactionDetailPanel({iurans=[],members=[],periods=[],settings={}}){
  ]});
 }
 function ProfessionalReport({iurans=[],members=[],periods=[],winners=[],settings={},loadExtra}){
- const [extra,setExtra]=N.useState([]),[expense,setExpense]=N.useState([]),[refunds,setRefunds]=N.useState([]),[credits,setCredits]=N.useState([]),[winnerPayments,setWinnerPayments]=N.useState([]),[loading,setLoading]=N.useState(true),[err,setErr]=N.useState(""),[showLatest,setShowLatest]=N.useState(false);
+ const [extra,setExtra]=N.useState([]),[expense,setExpense]=N.useState([]),[refunds,setRefunds]=N.useState([]),[credits,setCredits]=N.useState([]),[winnerPayments,setWinnerPayments]=N.useState([]),[loading,setLoading]=N.useState(true),[err,setErr]=N.useState(""),[showLatest,setShowLatest]=N.useState(true);
  const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
  const money=v=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",minimumFractionDigits:0,maximumFractionDigits:0}).format(num(v));
  const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
