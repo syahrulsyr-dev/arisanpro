@@ -1,0 +1,278 @@
+name: ArisanPro Authenticated E2E
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authenticated-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ARISANPRO_E2E_EMAIL: ${{ secrets.ARISANPRO_E2E_EMAIL }}
+      ARISANPRO_E2E_PASSWORD: ${{ secrets.ARISANPRO_E2E_PASSWORD }}
+      ARISANPRO_E2E_TARGET: https://syahrulsyr-dev.github.io/arisanpro/
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Run authenticated admin E2E on desktop/mobile
+        run: |
+          mkdir -p test-results
+          cat > auth-e2e.cjs <<'NODE'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+
+          const email = process.env.ARISANPRO_E2E_EMAIL || '';
+          const password = process.env.ARISANPRO_E2E_PASSWORD || '';
+          const target = process.env.ARISANPRO_E2E_TARGET || '';
+
+          if (!email || !password) {
+            throw new Error(
+              'Missing ARISANPRO_E2E_EMAIL / ARISANPRO_E2E_PASSWORD GitHub Actions secrets.'
+            );
+          }
+          if (!target) throw new Error('Missing ARISANPRO_E2E_TARGET.');
+
+          const errors = [];
+          const summary = [];
+
+          async function clickNav(page, label) {
+            const candidates = [
+              page.getByRole('button', { name: new RegExp('^' + label + '(?:\\s|$)', 'i') }),
+              page.locator('nav button').filter({ hasText: new RegExp('^\\s*' + label + '\\b', 'i') }),
+              page.getByRole('link', { name: new RegExp('^' + label + '(?:\\s|$)', 'i') })
+            ];
+            for (const locator of candidates) {
+              if (await locator.count()) {
+                await locator.first().click();
+                return;
+              }
+            }
+            throw new Error('Navigation control not found: ' + label);
+          }
+
+          async function findActionButton(page, label) {
+            const exact = page.getByRole('button', { name: new RegExp('^\\s*' + label + '\\s*$', 'i') });
+            if (await exact.count()) return exact.first();
+            const partial = page.getByRole('button', { name: new RegExp(label, 'i') });
+            if (await partial.count()) return partial.first();
+            throw new Error('Action button not found: ' + label);
+          }
+
+          async function inspectViewport(name, viewport) {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({
+              viewport,
+              locale: 'id-ID'
+            });
+            const page = await context.newPage();
+
+            let phase = 'login';
+            page.on('pageerror', e => errors.push({
+              type: 'pageerror', viewport: name, phase, message: e.message
+            }));
+            page.on('console', m => {
+              if (m.type() === 'error') errors.push({
+                type: 'console-error', viewport: name, phase, message: m.text(),
+                location: m.location()
+              });
+            });
+
+            await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForTimeout(3000);
+
+            const loginButton = page.getByRole('button', { name: /^Masuk$/i }).first();
+            await loginButton.waitFor({ state: 'visible', timeout: 20000 });
+
+            const inputs = page.locator('input');
+            const passwordInput = page.locator('input[type="password"]').first();
+            const userInput = inputs.filter({ hasNot: page.locator('[type="password"]') }).first();
+
+            await passwordInput.fill(password);
+            await userInput.fill(email);
+
+            phase = 'signin';
+            await loginButton.click();
+
+            await page.waitForFunction(() => {
+              const body = document.body?.innerText || '';
+              const session = localStorage.getItem('arisan_session');
+              const authReady = window.__awSupabaseAuthReady === true;
+              const signedIn = !!session || authReady;
+              return signedIn && !/Masuk sebagai Pengelola/i.test(body);
+            }, { timeout: 30000 });
+
+            await page.waitForTimeout(1500);
+
+            const afterLogin = await page.evaluate(() => ({
+              url: location.href,
+              authReady: window.__awSupabaseAuthReady === true,
+              hasSession: !!localStorage.getItem('arisan_session'),
+              text: (document.body?.innerText || '').slice(0, 1200)
+            }));
+
+            if (!afterLogin.authReady && !afterLogin.hasSession) {
+              throw new Error('Authenticated session was not established.');
+            }
+
+            await page.screenshot({
+              path: `test-results/${name}-authenticated-dashboard.png`,
+              fullPage: true, animations: 'disabled'
+            });
+
+            phase = 'navigation';
+
+            for (const tab of ['Anggota', 'Iuran', 'Undian', 'Laporan']) {
+              await clickNav(page, tab);
+              await page.waitForTimeout(700);
+              const text = await page.locator('body').innerText();
+              if (!new RegExp(tab, 'i').test(text)) {
+                throw new Error(`${name}: tab "${tab}" did not render expected content.`);
+              }
+            }
+
+            phase = 'member-form';
+            await clickNav(page, 'Anggota');
+            await page.waitForTimeout(500);
+            const addMember = await findActionButton(page, 'Tambah Anggota');
+            await addMember.scrollIntoViewIfNeeded();
+            await addMember.click();
+            await page.waitForTimeout(400);
+
+            const memberFormVisible = await page.evaluate(() => {
+              const body = document.body?.innerText || '';
+              const save = [...document.querySelectorAll('button')].some(b =>
+                /^\\s*Simpan\\s*$/i.test((b.textContent || '').trim())
+              );
+              const nameInput = [...document.querySelectorAll('input')].some(i =>
+                /nama/i.test(i.placeholder || '') || /nama/i.test(i.getAttribute('aria-label') || '')
+              );
+              return save || nameInput || /Tambah Anggota/i.test(body);
+            });
+
+            if (!memberFormVisible) {
+              throw new Error(`${name}: Tambah Anggota did not open a visible form.`);
+            }
+
+            await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForFunction(() => {
+              const session = localStorage.getItem('arisan_session');
+              return !!session || window.__awSupabaseAuthReady === true;
+            }, { timeout: 30000 });
+            await page.waitForTimeout(1000);
+
+            phase = 'payment-form';
+            await clickNav(page, 'Iuran');
+            await page.waitForTimeout(700);
+
+            const addPayment = await findActionButton(page, 'Catat Iuran');
+            await addPayment.scrollIntoViewIfNeeded();
+            await addPayment.click();
+            await page.waitForTimeout(400);
+
+            const paymentFormVisible = await page.evaluate(() => {
+              const body = document.body?.innerText || '';
+              const save = [...document.querySelectorAll('button')].some(b =>
+                /^\\s*Simpan\\s*$/i.test((b.textContent || '').trim())
+              );
+              const paymentField = [...document.querySelectorAll('input,select')].some(i =>
+                /nominal|anggota|periode|tanggal|bayar/i.test(
+                  (i.placeholder || '') + ' ' + (i.getAttribute('aria-label') || '') + ' ' + (i.name || '')
+                )
+              );
+              return save || paymentField || /Catat Iuran/i.test(body);
+            });
+
+            if (!paymentFormVisible) {
+              throw new Error(`${name}: Catat Iuran did not open a visible form.`);
+            }
+
+            const finalState = await page.evaluate(() => ({
+              sessionEmail: (() => {
+                try {
+                  return JSON.parse(localStorage.getItem('arisan_session') || '{}').email || null;
+                } catch {
+                  return null;
+                }
+              })(),
+              authReady: window.__awSupabaseAuthReady === true,
+              viewport: { width: innerWidth, height: innerHeight },
+              horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+              visibleNaN: /\\bNaN\\b|Rp\\s*NaN/i.test(document.body?.innerText || '')
+            }));
+
+            if (finalState.visibleNaN) {
+              throw new Error(`${name}: authenticated UI contains visible NaN.`);
+            }
+            if (finalState.horizontalOverflow) {
+              throw new Error(`${name}: authenticated UI has horizontal overflow.`);
+            }
+
+            await page.screenshot({
+              path: `test-results/${name}-authenticated-iuran-form.png`,
+              fullPage: true, animations: 'disabled'
+            });
+
+            summary.push({
+              viewport: name,
+              authenticated: true,
+              authReady: finalState.authReady,
+              sessionPresent: !!finalState.sessionEmail,
+              checkedTabs: ['Anggota', 'Iuran', 'Undian', 'Laporan'],
+              tambahAnggotaFormVisible: memberFormVisible,
+              catatIuranFormVisible: paymentFormVisible,
+              horizontalOverflow: finalState.horizontalOverflow,
+              visibleNaN: finalState.visibleNaN
+            });
+
+            await context.close();
+            await browser.close();
+          }
+
+          (async () => {
+            try {
+              await inspectViewport('desktop', { width: 1440, height: 1000 });
+              await inspectViewport('mobile', { width: 390, height: 844 });
+
+              fs.writeFileSync('test-results/browser-errors.json', JSON.stringify(errors, null, 2));
+              fs.writeFileSync('test-results/test-summary.json', JSON.stringify(summary, null, 2));
+
+              if (errors.length) {
+                throw new Error('Authenticated E2E produced browser errors: ' + JSON.stringify(errors));
+              }
+
+              console.log(JSON.stringify({ summary }, null, 2));
+              console.log('Authenticated admin E2E completed without financial mutations.');
+            } catch (error) {
+              fs.writeFileSync('test-results/browser-errors.json', JSON.stringify(errors, null, 2));
+              fs.writeFileSync('test-results/test-summary.json', JSON.stringify(summary, null, 2));
+              throw error;
+            }
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+          node auth-e2e.cjs
+
+      - name: Upload authenticated E2E diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: arisanpro-auth-e2e-results
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7
