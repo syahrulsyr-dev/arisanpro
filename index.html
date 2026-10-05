@@ -5130,6 +5130,9 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
   async function show(){
     if(publicView()) return;
     const w=workspace(); if(!w) return;
+    // The Finance workspace is an explicit application mode. Lock host visibility
+    // at the point of transition so unrelated stylesheet ordering cannot hide it.
+    w.style.setProperty('display','block','important');
     document.body.classList.add('aw-finance-open');
     window.__AW_FINANCE_NAV_STATE__='open';
     mountModules();
