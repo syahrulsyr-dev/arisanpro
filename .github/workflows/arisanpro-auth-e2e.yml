@@ -33,11 +33,10 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
-      - name: Start local branch server
+      - name: Run authenticated admin E2E on desktop/mobile
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/arisanpro-auth-http.log 2>&1 &
           SERVER_PID=$!
-          echo "$SERVER_PID" > /tmp/arisanpro-auth-server.pid
           trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
             if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
@@ -45,8 +44,6 @@ jobs:
           done
           curl --silent --fail http://127.0.0.1:4173/ > /dev/null || { cat /tmp/arisanpro-auth-http.log; exit 1; }
 
-      - name: Run authenticated admin E2E on desktop/mobile
-        run: |
           mkdir -p test-results
           cat > auth-e2e.cjs <<'NODE'
           const { chromium } = require('playwright');
