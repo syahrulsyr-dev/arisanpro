@@ -883,6 +883,78 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] 
   }
 }
 </style>
+
+<style id="aw-login-warga-compact-live-v1">
+/* V1 login polish: keep the warga portal secondary and make LIVE status readable. */
+body:not(.aw-public-live) #root .aw-login-form .pt-4.border-t.border-slate-100.flex.items-center.justify-between{
+  gap:12px!important;
+  align-items:center!important;
+}
+body:not(.aw-public-live) #root .aw-login-form .pt-4.border-t.border-slate-100.flex.items-center.justify-between > button{
+  width:max-content!important;
+  max-width:100%!important;
+  min-width:0!important;
+  flex:0 0 auto!important;
+  height:44px!important;
+  min-height:44px!important;
+  padding:0 20px!important;
+  border-radius:12px!important;
+  font-size:13px!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+}
+body:not(.aw-public-live) #root .aw-login-form .pt-4.border-t.border-slate-100.flex.items-center.justify-between > span{
+  flex:0 0 auto!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  white-space:nowrap!important;
+  line-height:1!important;
+}
+body:not(.aw-public-live) #root .aw-login-form .pt-4.border-t.border-slate-100.flex.items-center.justify-between > span::before{
+  content:"";
+  width:6px;
+  height:6px;
+  flex:0 0 6px;
+  border-radius:999px;
+  background:#ef4444;
+  box-shadow:0 0 0 0 rgba(239,68,68,.45);
+  animation:aw-login-live-pulse 1.8s ease-in-out infinite;
+}
+@keyframes aw-login-live-pulse{
+  0%,100%{opacity:.72;box-shadow:0 0 0 0 rgba(239,68,68,.38)}
+  50%{opacity:1;box-shadow:0 0 0 4px rgba(239,68,68,0)}
+}
+@media(max-width:767px){
+  body:not(.aw-public-live) #root .aw-login-form .pt-4.border-t.border-slate-100.flex.items-center.justify-between{
+    gap:10px!important;
+  }
+  body:not(.aw-public-live) #root .aw-login-form .pt-4.border-t.border-slate-100.flex.items-center.justify-between > button{
+    height:42px!important;
+    min-height:42px!important;
+    padding:0 18px!important;
+    font-size:12px!important;
+  }
+  body:not(.aw-public-live) #root .aw-login-form .pt-4.border-t.border-slate-100.flex.items-center.justify-between > span{
+    font-size:9px!important;
+    letter-spacing:.16em!important;
+  }
+}
+@media(max-width:350px){
+  body:not(.aw-public-live) #root .aw-login-form .pt-4.border-t.border-slate-100.flex.items-center.justify-between{
+    align-items:flex-start!important;
+  }
+  body:not(.aw-public-live) #root .aw-login-form .pt-4.border-t.border-slate-100.flex.items-center.justify-between > span{
+    padding-top:13px!important;
+  }
+}
+@media(prefers-reduced-motion: reduce){
+  body:not(.aw-public-live) #root .aw-login-form .pt-4.border-t.border-slate-100.flex.items-center.justify-between > span::before{
+    animation:none!important;
+    box-shadow:none!important;
+  }
+}
+</style>
 </head>
 <body>
 <style id="aw-finance-redesign-css">
