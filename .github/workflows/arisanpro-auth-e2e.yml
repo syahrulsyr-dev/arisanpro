@@ -232,6 +232,70 @@ jobs:
               throw new Error(`${name}: Anggota layout has horizontal overflow: ${JSON.stringify(memberLayout)}`);
             }
 
+            await clickNav(page, 'Iuran');
+            await page.waitForTimeout(700);
+
+            const iuranLayout = await page.evaluate(() => {
+              const main = document.querySelector('main[data-aw-page="iuran"]');
+              if (!main) return { found: false };
+
+              const add = main.querySelector('[data-aw-v121-iuran-add]');
+              const matrix = main.querySelector('[data-aw-v121-iuran-matrix]');
+              const matrixRect = matrix?.getBoundingClientRect() || null;
+              const addRect = add?.getBoundingClientRect() || null;
+              const headerText = matrix?.querySelector('thead')?.innerText || '';
+              const periodSummaryHeading = [...main.querySelectorAll('h4')].find(x =>
+                /Rekap per Periode/i.test(x.textContent || '')
+              );
+              const periodSummary = periodSummaryHeading?.parentElement || null;
+
+              return {
+                found: true,
+                addFound: !!add,
+                matrixFound: !!matrix,
+                addWidth: addRect?.width ?? 0,
+                matrixClientWidth: matrix?.clientWidth ?? 0,
+                matrixClientHeight: matrix?.clientHeight ?? 0,
+                matrixScrollWidth: matrix?.scrollWidth ?? 0,
+                matrixScrollHeight: matrix?.scrollHeight ?? 0,
+                matrixOverflowX: getComputedStyle(matrix || document.body).overflowX,
+                matrixOverflowY: getComputedStyle(matrix || document.body).overflowY,
+                headerText,
+                periodSummaryVisible: !!periodSummaryHeading,
+                periodSummaryCards: periodSummary ? periodSummary.querySelectorAll('.grid > div').length : 0,
+                horizontalOverflow: document.documentElement.scrollWidth >
+                  document.documentElement.clientWidth + 1
+              };
+            });
+
+            if (!iuranLayout.found || !iuranLayout.addFound || !iuranLayout.matrixFound) {
+              throw new Error(`${name}: Iuran action/matrix structure is incomplete: ${JSON.stringify(iuranLayout)}`);
+            }
+            if (!/Periode\\s+1\\s*-\\s*6/i.test(iuranLayout.headerText)) {
+              throw new Error(`${name}: Iuran period range header is missing/non-canonical: ${JSON.stringify(iuranLayout)}`);
+            }
+            if (!iuranLayout.periodSummaryVisible || iuranLayout.periodSummaryCards < 2) {
+              throw new Error(`${name}: Iuran period recap collapsed/does not render multiple period cards: ${JSON.stringify(iuranLayout)}`);
+            }
+            if (iuranLayout.addWidth <= 0 || iuranLayout.addWidth > 240) {
+              throw new Error(`${name}: Iuran Catat Iuran button width is disproportionate: ${JSON.stringify(iuranLayout)}`);
+            }
+            if (iuranLayout.matrixClientWidth <= 0 || iuranLayout.matrixClientHeight <= 0) {
+              throw new Error(`${name}: Iuran matrix has no measurable internal scroll viewport: ${JSON.stringify(iuranLayout)}`);
+            }
+            if (iuranLayout.matrixScrollWidth <= iuranLayout.matrixClientWidth) {
+              throw new Error(`${name}: Iuran matrix lost horizontal internal scrolling: ${JSON.stringify(iuranLayout)}`);
+            }
+            if (iuranLayout.matrixScrollHeight <= iuranLayout.matrixClientHeight) {
+              throw new Error(`${name}: Iuran matrix lost vertical internal scrolling: ${JSON.stringify(iuranLayout)}`);
+            }
+            if (!/auto|scroll/i.test(iuranLayout.matrixOverflowX) || !/auto|scroll/i.test(iuranLayout.matrixOverflowY)) {
+              throw new Error(`${name}: Iuran matrix overflow ownership is not internal: ${JSON.stringify(iuranLayout)}`);
+            }
+            if (iuranLayout.horizontalOverflow) {
+              throw new Error(`${name}: Iuran page has horizontal overflow outside its intended matrix scroller: ${JSON.stringify(iuranLayout)}`);
+            }
+
             for (const tab of ['Anggota', 'Iuran', 'Undian', 'Laporan']) {
               await clickNav(page, tab);
               await page.waitForTimeout(700);
@@ -312,6 +376,7 @@ jobs:
               sessionPresent: !!finalState.sessionEmail,
               checkedTabs: ['Anggota', 'Iuran', 'Undian', 'Laporan'],
               memberLayout,
+              iuranLayout,
               tambahAnggotaFormVisible: memberFormVisible,
               catatIuranFormVisible: paymentFormVisible,
               horizontalOverflow: finalState.horizontalOverflow,
