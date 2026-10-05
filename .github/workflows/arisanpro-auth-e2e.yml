@@ -618,7 +618,13 @@ jobs:
             }
 
             phase = 'finance-workspace';
-            await clickNav(page, 'Keuangan');
+            const financeControllerReady = await page.evaluate(() =>
+              typeof window.__AW_FINANCE_NAV_OPEN__ === 'function'
+            );
+            if (!financeControllerReady) {
+              throw new Error(`${name}: Finance navigation controller is not registered.`);
+            }
+            await page.evaluate(() => window.__AW_FINANCE_NAV_OPEN__());
             await page.waitForTimeout(900);
 
             const financeLayout = await page.evaluate(() => {
