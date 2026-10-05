@@ -1,6 +1,10 @@
 name: ArisanPro Authenticated E2E
 
 on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - '.github/workflows/arisanpro-auth-e2e.yml'
   workflow_dispatch:
 
 permissions:
@@ -13,7 +17,8 @@ jobs:
     env:
       ARISANPRO_E2E_EMAIL: ${{ secrets.ARISANPRO_E2E_EMAIL }}
       ARISANPRO_E2E_PASSWORD: ${{ secrets.ARISANPRO_E2E_PASSWORD }}
-      ARISANPRO_E2E_TARGET: https://syahrulsyr-dev.github.io/arisanpro/
+      ARISANPRO_E2E_TARGET: http://127.0.0.1:4173/
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -27,6 +32,18 @@ jobs:
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
+
+      - name: Start local branch server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/arisanpro-auth-http.log 2>&1 &
+          SERVER_PID=$!
+          echo "$SERVER_PID" > /tmp/arisanpro-auth-server.pid
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:4173/ > /dev/null || { cat /tmp/arisanpro-auth-http.log; exit 1; }
 
       - name: Run authenticated admin E2E on desktop/mobile
         run: |
