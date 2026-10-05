@@ -205,8 +205,12 @@ jobs:
             }
 
             phase = 'finance-navigation';
-            await clickNav(page, 'Keuangan');
-            await page.waitForTimeout(1000);
+            const financeButton = page.locator('button[data-aw-finance-nav]').filter({visible:true}).first();
+            if (!(await financeButton.count())) {
+              throw new Error(`${name}: no visible canonical finance navigation button. controls=${await page.locator('button').allTextContents()}`);
+            }
+            await financeButton.click();
+            await page.waitForTimeout(1200);
             const financeState = await page.evaluate(() => {
               const w = document.querySelector('#aw-finance-workspace');
               const r = w?.getBoundingClientRect();
