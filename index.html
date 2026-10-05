@@ -6864,29 +6864,22 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
     const latest=Array.from(root.querySelectorAll('.aw-pr-box')).find(x=>/^Transaksi Kas Terbaru$/i.test(text(x.querySelector('h4'))));
     const dh=Array.from(root.querySelectorAll('h4,h3')).find(x=>/^Riwayat Transaksi Detail$/i.test(text(x)));
     const detail=dh?.closest('.bg-white');
+
+    // Both report tables must remain visible on mobile.
+    // Each table owns its own internal scroll container; do not collapse them into tabs.
+    root.querySelector('.aw-v121-report-tabs')?.remove();
+
     if(latest){
+      latest.hidden=false;
       latest.classList.add('aw-v121-report-latest');
       const wrap=Array.from(latest.querySelectorAll('div')).find(d=>d.querySelector('table'));
       wrap?.classList.add('aw-v121-report-scroll-latest');
     }
     if(detail){
+      detail.hidden=false;
       detail.classList.add('aw-v121-report-detail');
       const wrap=Array.from(detail.querySelectorAll('div')).find(d=>d.querySelector('table')&&d!==detail);
       wrap?.classList.add('aw-v121-report-scroll-detail');
-    }
-    if(latest&&detail&&isMobile()){
-      let tabs=root.querySelector('.aw-v121-report-tabs');
-      if(!tabs){
-        tabs=document.createElement('div');tabs.className='aw-v121-report-tabs';
-        const b1=document.createElement('button');b1.type='button';b1.className='aw-v121-report-tab';b1.dataset.mode='latest';b1.textContent='Transaksi Kas Terbaru';
-        const b2=document.createElement('button');b2.type='button';b2.className='aw-v121-report-tab';b2.dataset.mode='detail';b2.textContent='Riwayat Transaksi Detail';
-        tabs.append(b1,b2);
-        // Keep tabs immediately before the latest transaction panel; never before the whole report page.
-        latest.parentNode?.insertBefore(tabs,latest);
-        tabs.addEventListener('click',ev=>{const b=ev.target.closest('.aw-v121-report-tab');if(!b)return;window.__AW_V121_REPORT_MODE__=b.dataset.mode;apply();});
-      }
-      const apply=()=>{const mode=window.__AW_V121_REPORT_MODE__==='detail'?'detail':'latest';latest.hidden=mode!=='latest';detail.hidden=mode!=='detail';tabs.querySelectorAll('.aw-v121-report-tab').forEach(b=>b.classList.toggle('is-active',b.dataset.mode===mode));};
-      apply();
     }
   }
 
