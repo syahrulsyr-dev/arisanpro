@@ -182,6 +182,56 @@ jobs:
 
             phase = 'navigation';
 
+            await clickNav(page, 'Anggota');
+            await page.waitForTimeout(700);
+
+            const memberLayout = await page.evaluate(() => {
+              const grid = document.querySelector('main[data-aw-page="anggota"] .grid.md\\:grid-cols-2.xl\\:grid-cols-3');
+              if (!grid) return { found: false };
+              const gridRect = grid.getBoundingClientRect();
+              const cards = [...grid.children].filter(el => {
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none';
+              });
+              const rows = [];
+              for (const card of cards) {
+                const r = card.getBoundingClientRect();
+                if (!rows.some(y => Math.abs(y - r.top) <= 2)) rows.push(r.top);
+              }
+              const firstCard = cards[0]?.getBoundingClientRect() || null;
+              const secondCard = cards[1]?.getBoundingClientRect() || null;
+              const firstName = cards[0]?.querySelector('.font-bold.text-sm');
+              return {
+                found: true,
+                cardCount: cards.length,
+                rowCount: rows.length,
+                gridWidth: gridRect.width,
+                firstCardWidth: firstCard?.width ?? 0,
+                secondCardWidth: secondCard?.width ?? 0,
+                titleFontSize: firstName ? getComputedStyle(firstName).fontSize : null,
+                horizontalOverflow: document.documentElement.scrollWidth >
+                  document.documentElement.clientWidth + 1
+              };
+            });
+
+            if (!memberLayout.found || memberLayout.cardCount < 2) {
+              throw new Error(`${name}: Anggota member-card grid did not render at least two visible cards.`);
+            }
+
+            if (name === 'mobile') {
+              if (memberLayout.rowCount >= memberLayout.cardCount) {
+                throw new Error(`${name}: Anggota cards are not arranged side-by-side on mobile: ${JSON.stringify(memberLayout)}`);
+              }
+              if (memberLayout.firstCardWidth > memberLayout.gridWidth * 0.70) {
+                throw new Error(`${name}: mobile member cards are too wide / not compact: ${JSON.stringify(memberLayout)}`);
+              }
+            }
+
+            if (memberLayout.horizontalOverflow) {
+              throw new Error(`${name}: Anggota layout has horizontal overflow: ${JSON.stringify(memberLayout)}`);
+            }
+
             for (const tab of ['Anggota', 'Iuran', 'Undian', 'Laporan']) {
               await clickNav(page, tab);
               await page.waitForTimeout(700);
@@ -261,6 +311,7 @@ jobs:
               authReady: finalState.authReady,
               sessionPresent: !!finalState.sessionEmail,
               checkedTabs: ['Anggota', 'Iuran', 'Undian', 'Laporan'],
+              memberLayout,
               tambahAnggotaFormVisible: memberFormVisible,
               catatIuranFormVisible: paymentFormVisible,
               horizontalOverflow: finalState.horizontalOverflow,
