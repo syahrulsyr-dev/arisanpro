@@ -54,6 +54,7 @@ function initAuth(client){
   let authGuardBusy=false;
   let lastGuardAt=0;
   let redirecting=false;
+  let authEpoch=0;
   const publicMode=()=>new URLSearchParams(window.location.search).get('view')==='public';
 
   const clearLocalAuth=(reason,reload=true)=>{
@@ -125,7 +126,9 @@ function initAuth(client){
     }
   };
 
+  const bootstrapEpoch=authEpoch;
   client.auth.getSession().then(async({data:{session},error})=>{
+    if(bootstrapEpoch!==authEpoch)return;
     if(error){
       if(isAuthFailure(error))clearLocalAuth('initial getSession');
       return;
@@ -146,6 +149,7 @@ function initAuth(client){
 
   let __hasReloaded=sessionStorage.getItem('__supa_reloaded');
   client.auth.onAuthStateChange((ev,sess)=>{
+    authEpoch++;
     console.log('🔐 AUTH',ev,sess?.user?.email||null);
 
     if(ev==='INITIAL_SESSION'){
@@ -208,14 +212,8 @@ function initAuth(client){
     if(document.visibilityState==='visible'&&Date.now()-lastGuardAt>=30000)verifyLiveSession('interval');
   },15000);
 
-  client.auth.getSession().then(({data:{session}})=>{
-    window.__awSupabaseAuthReady=!!session;
-    window.__awSupabaseSession=session||null;
-    if(!session&&!publicMode()&&localStorage.getItem('arisan_session'))clearLocalAuth('secondary getSession');
-    if(session&&window.__awIncomeAuthReady&&!window.__awIncomeInitialLoadDone){
-      window.__awIncomeAuthReady().catch(err=>console.warn('Pemasukan Lain initial sync:',err));
-    }
-  }).catch(err=>console.warn('Auth session restore:',err));
+  // No second getSession bootstrap here: one authoritative bootstrap avoids
+  // stale async null results racing a fresh SIGNED_IN event.
   window.__supaLogout = async()=>{
     await client.auth.signOut();
     localStorage.removeItem('arisan_session');
