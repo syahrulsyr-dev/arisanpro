@@ -772,21 +772,23 @@ jobs:
             phase = 'share-public-simulation';
             const sim = page.getByRole('button', { name: /Buka Halaman Publik \(Simulasi\)/i }).first();
             await sim.click();
-            await page.waitForTimeout(700);
+            await page.waitForTimeout(500);
 
-            const simulationVisible = await page.evaluate(() => {
-              const candidates = [...document.querySelectorAll('[role="dialog"],.fixed')].filter(el => {
-                const r = el.getBoundingClientRect();
-                const s = getComputedStyle(el);
-                return r.width > 0 && r.height > 0 && s.display !== 'none';
-              });
+            const previewState = await page.evaluate(() => {
+              const body = document.body?.innerText || '';
               return {
-                visible: candidates.length > 0,
-                text: candidates.map(x => x.innerText || '').join('\n').slice(0, 3000)
+                wargaPreviewPresent: /Preview Tampilan Warga/i.test(body),
+                publicLinkPresent: /Link asli:/i.test(body),
+                pageOverflow: document.documentElement.scrollWidth >
+                  document.documentElement.clientWidth + 1
               };
             });
-            if (!simulationVisible.visible || !/publik|warga|link|live/i.test(simulationVisible.text)) {
-              throw new Error(`${name}: Share public-page simulation did not open a recognizable preview: ${JSON.stringify(simulationVisible)}`);
+
+            if (!previewState.wargaPreviewPresent || !previewState.publicLinkPresent) {
+              throw new Error(`${name}: Share public simulation click did not retain the Warga preview/public-link surface: ${JSON.stringify(previewState)}`);
+            }
+            if (previewState.pageOverflow) {
+              throw new Error(`${name}: Share simulation introduced page-level horizontal overflow: ${JSON.stringify(previewState)}`);
             }
 
             phase = 'payment-form';
