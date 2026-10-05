@@ -7232,6 +7232,21 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .aw-
   }
 }
 </style>
+<style id="aw-finance-desktop-width-fix">
+/* Desktop Finance content: keep the workspace background full-width,
+   but constrain the actual controls and ledger to a readable admin canvas. */
+@media(min-width:1025px){
+  body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-head,
+  body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-tools,
+  body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > .aw-fin-note,
+  body.aw-authenticated:not(.aw-public-live) #aw-finance-workspace > #aw-fin-content{
+    width:100%!important;
+    max-width:1120px!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+  }
+}
+</style>
 
 <script id="aw-dashboard-functional-hardening-v1">
 (function(){
