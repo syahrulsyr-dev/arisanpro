@@ -7444,7 +7444,27 @@ body.aw-authenticated:not(.aw-public-live) .aw-ui-modal-contract>div{
     const label=norm(b.textContent);
     const key=Object.keys(LABELS).find(k=>label===norm(LABELS[k])||label.startsWith(norm(LABELS[k])+' '));
     if(!key) return;
-    if(key!=='keuangan') window.scrollTo({top:0,behavior:'auto'});
+    if(key==='keuangan'){
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      const open=()=>{
+        if(document.body.classList.contains('aw-finance-open')) return true;
+        if(typeof window.__AW_FINANCE_NAV_OPEN__==='function'){ window.__AW_FINANCE_NAV_OPEN__(); return true; }
+        return false;
+      };
+      if(!open()){
+        let tries=0;
+        const retry=()=>{
+          if(document.body.classList.contains('aw-finance-open')||tries++>=30) return;
+          if(open()) return;
+          setTimeout(retry,100);
+        };
+        retry();
+      }
+      setTimeout(schedule,120);
+      return;
+    }
+    window.scrollTo({top:0,behavior:'auto'});
     setTimeout(schedule,40);
     setTimeout(schedule,240);
   },true);
