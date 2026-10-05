@@ -393,10 +393,39 @@ jobs:
                 throw new Error(`${name}: Batalkan Pemenang did not route through reset_pemenang RPC.`);
               }
 
+              page.off('dialog', dialogs);
+
+              // Isolate Reset Pemenang from the async refresh triggered by cancel.
+              await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+              await page.waitForFunction(() => {
+                const session = localStorage.getItem('arisan_session');
+                return !!session || window.__awSupabaseAuthReady === true;
+              }, { timeout: 30000 });
+              await page.waitForTimeout(1000);
+              await clickNav(page, 'Undian');
+              await page.waitForTimeout(700);
+
+              await page.evaluate(() => {
+                const client = window.__supaClient;
+                if (!client) throw new Error('Supabase client unavailable for Undian reset RPC spy.');
+                const originalRpc = client.rpc.bind(client);
+                window.__AW_E2E_RPC_CALLS__ = [];
+                client.rpc = async (fn, args) => {
+                  window.__AW_E2E_RPC_CALLS__.push({ fn, args });
+                  if (fn === 'reset_pemenang') {
+                    return { data: { live_cleared: true, reversed_amount: 0 }, error: null };
+                  }
+                  return originalRpc(fn, args);
+                };
+              });
+
+              const resetDialogs = dialog => dialog.accept();
+              page.on('dialog', resetDialogs);
+
               phase = 'undian-reset-spy';
               const reset = page.getByRole('button', { name: /^Reset Pemenang$/i }).first();
               await reset.click();
-              await page.waitForTimeout(500);
+              await page.waitForTimeout(700);
 
               const resetRpcAudit = await page.evaluate(() =>
                 Array.isArray(window.__AW_E2E_RPC_CALLS__) ?
@@ -407,7 +436,7 @@ jobs:
                 throw new Error(`${name}: Reset Pemenang did not route all winners through reset_pemenang RPC: ${JSON.stringify(resetRpcAudit)}`);
               }
 
-              page.off('dialog', dialogs);
+              page.off('dialog', resetDialogs);
             }
 
             phase = 'laporan-ui';
