@@ -7215,6 +7215,18 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .aw-
     overflow:auto!important;
   }
 }
+<style id="aw-finance-desktop-visibility-fix">
+/* Finance Workspace desktop owner — pair the mobile visibility rule.
+   The workspace is a fixed desktop surface and must become visible only while finance mode is open. */
+@media(min-width:768px){
+  body.aw-authenticated:not(.aw-public-live).aw-finance-open #root{
+    display:none!important;
+  }
+  body.aw-authenticated:not(.aw-public-live).aw-finance-open #aw-finance-workspace{
+    display:block!important;
+  }
+}
+</style>
 </style>
 </body>
 </html>
