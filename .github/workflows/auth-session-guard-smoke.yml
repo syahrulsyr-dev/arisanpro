@@ -1,0 +1,121 @@
+name: ArisanPro Auth Session Guard Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - '.github/workflows/auth-session-guard-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  auth-session-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Run stale-session auth guard regression
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/arisanpro-auth-guard-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:4173/ > /dev/null || { cat /tmp/arisanpro-auth-guard-http.log; exit 1; }
+
+          cat > auth-session-guard.cjs <<'NODE'
+          const { chromium } = require('playwright');
+
+          const target = 'http://127.0.0.1:4173/';
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({
+              viewport: { width: 1440, height: 1000 },
+              locale: 'id-ID'
+            });
+
+            await context.addInitScript(() => {
+              if (sessionStorage.getItem('__aw_test_stale_seeded') === '1') return;
+              sessionStorage.setItem('__aw_test_stale_seeded', '1');
+              localStorage.setItem('arisan_session', JSON.stringify({
+                username: 'stale-admin',
+                email: 'stale-admin@example.invalid',
+                role: 'admin',
+                id: 'stale-admin-id'
+              }));
+              localStorage.setItem('arisan_supabase_session', JSON.stringify({
+                access_token: 'expired-test-token',
+                refresh_token: 'expired-test-refresh-token'
+              }));
+            });
+
+            const page = await context.newPage();
+            const errors = [];
+            page.on('pageerror', error => errors.push('pageerror: ' + error.message));
+            page.on('console', message => {
+              if (message.type() === 'error') errors.push('console: ' + message.text());
+            });
+
+            await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.getByRole('heading', { name: /Masuk sebagai Pengelola/i }).first()
+              .waitFor({ state: 'visible', timeout: 20000 });
+            await page.waitForFunction(() => window.__awAuthBootstrapDone === true, { timeout: 20000 });
+
+            const state = await page.evaluate(() => {
+              const dashboard = document.querySelector('#root main[data-aw-page="dashboard"]');
+              let dashboardVisible = false;
+              if (dashboard) {
+                const r = dashboard.getBoundingClientRect();
+                const s = getComputedStyle(dashboard);
+                dashboardVisible = r.width > 0 && r.height > 0 &&
+                  s.display !== 'none' && s.visibility !== 'hidden' && !dashboard.hidden;
+              }
+              return {
+                loginVisible: !!document.querySelector('input#email') &&
+                  getComputedStyle(document.querySelector('input#email')).display !== 'none',
+                dashboardVisible,
+                localAuthSession: !!localStorage.getItem('arisan_session'),
+                supabaseAuthReady: window.__awSupabaseAuthReady === true,
+                authBootstrapDone: window.__awAuthBootstrapDone === true,
+                url: location.href
+              };
+            });
+
+            if (!state.loginVisible ||
+                state.dashboardVisible ||
+                state.localAuthSession ||
+                state.supabaseAuthReady ||
+                !state.authBootstrapDone) {
+              throw new Error('Stale-session auth guard failed: ' + JSON.stringify(state));
+            }
+
+            if (errors.length) throw new Error('Browser errors: ' + JSON.stringify(errors));
+
+            console.log('AUTH SESSION GUARD PASS');
+            console.log(JSON.stringify(state, null, 2));
+
+            await context.close();
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+          node auth-session-guard.cjs
