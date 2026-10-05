@@ -196,6 +196,49 @@ jobs:
               throw new Error(`${name}: Dashboard contract failed: ${JSON.stringify(dashboardState)}`);
             }
 
+            phase = 'dashboard-payment-quick-action';
+            const paymentQuick = await findActionButton(page, 'Catat Iuran');
+            await paymentQuick.scrollIntoViewIfNeeded();
+            await paymentQuick.click();
+            await page.waitForTimeout(500);
+
+            const paymentModalState = await page.evaluate(() => {
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return !el.hidden && r.width > 0 && r.height > 0 &&
+                  s.display !== 'none' && s.visibility !== 'hidden';
+              };
+              const overlays = [...document.querySelectorAll('.fixed,[role="dialog"],dialog')].filter(visible);
+              const overlay = overlays.find(el =>
+                /Catat Pembayaran Iuran/i.test(el.innerText || '')
+              );
+              const panel = overlay ? [...overlay.querySelectorAll('div')].reverse().find(visible) : null;
+              if (!overlay) return {visible:false,centered:false,dx:null,dy:null};
+              const or=overlay.getBoundingClientRect();
+              const pr=panel?.getBoundingClientRect();
+              return {
+                visible:true,
+                centered:!!pr,
+                dx:pr?Math.abs((pr.left+pr.width/2)-(or.left+or.width/2)):null,
+                dy:pr?Math.abs((pr.top+pr.height/2)-(or.top+or.height/2)):null
+              };
+            });
+            if (!paymentModalState.visible ||
+                !paymentModalState.centered ||
+                paymentModalState.dx > 32 ||
+                paymentModalState.dy > 32) {
+              throw new Error(`${name}: Dashboard Quick Action "Catat Iuran" did not open a centered form: ${JSON.stringify(paymentModalState)}`);
+            }
+
+            await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForFunction(() => {
+              const session = localStorage.getItem('arisan_session');
+              return !!session || window.__awSupabaseAuthReady === true;
+            }, { timeout: 30000 });
+            await page.waitForTimeout(1000);
+
             for (const action of ['Kocok Arisan', 'Bagikan Link', 'Lihat Matriks Lengkap']) {
               const button = await findActionButton(page, action);
               await button.scrollIntoViewIfNeeded();
@@ -250,6 +293,36 @@ jobs:
 
             if (!memberFormVisible) {
               throw new Error(`${name}: Dashboard Quick Action "Tambah Anggota" did not open the member modal.`);
+            }
+
+            const memberModalGeometry = await page.evaluate(() => {
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return !el.hidden && r.width > 0 && r.height > 0 &&
+                  s.display !== 'none' && s.visibility !== 'hidden';
+              };
+              const overlays = [...document.querySelectorAll('.fixed')].filter(visible);
+              const overlay = overlays.find(el =>
+                [...el.querySelectorAll('h2,h3,h4')].some(h =>
+                  /^Tambah Anggota Baru$|^Edit Anggota$/i.test((h.textContent || '').trim())
+                )
+              );
+              const panel = overlay ? [...overlay.children].find(visible) : null;
+              if (!overlay || !panel) return {ok:false};
+              const or = overlay.getBoundingClientRect();
+              const pr = panel.getBoundingClientRect();
+              return {
+                ok:true,
+                dx:Math.abs((pr.left+pr.width/2)-(or.left+or.width/2)),
+                dy:Math.abs((pr.top+pr.height/2)-(or.top+or.height/2))
+              };
+            });
+            if (!memberModalGeometry.ok ||
+                memberModalGeometry.dx > 32 ||
+                memberModalGeometry.dy > 32) {
+              throw new Error(`${name}: Tambah Anggota modal is not centered: ${JSON.stringify(memberModalGeometry)}`);
             }
 
             await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
