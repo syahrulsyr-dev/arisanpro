@@ -66,16 +66,23 @@ jobs:
           const summary = [];
 
           async function clickNav(page, label) {
-            const candidates = [
-              page.getByRole('button', { name: new RegExp('^' + label + '(?:\\s|$)', 'i') }),
-              page.locator('nav button').filter({ hasText: new RegExp('^\\s*' + label + '\\b', 'i') }),
-              page.getByRole('link', { name: new RegExp('^' + label + '(?:\\s|$)', 'i') })
-            ];
-            for (const locator of candidates) {
-              if (await locator.count()) {
-                await locator.first().click();
-                return;
+            const deadline = Date.now() + 8000;
+            while (Date.now() < deadline) {
+              const candidates = [
+                page.getByRole('button', { name: new RegExp('^' + label + '(?:\\s|$)', 'i') }),
+                page.locator('nav button').filter({ hasText: new RegExp('^\\s*' + label + '\\b', 'i') }),
+                page.getByRole('link', { name: new RegExp('^' + label + '(?:\\s|$)', 'i') })
+              ];
+              for (const locator of candidates) {
+                if (await locator.count()) {
+                  const first = locator.first();
+                  if (await first.isVisible().catch(() => false)) {
+                    await first.click();
+                    return;
+                  }
+                }
               }
+              await page.waitForTimeout(200);
             }
             throw new Error('Navigation control not found: ' + label);
           }
@@ -362,18 +369,17 @@ jobs:
             }
 
             if (undianAudit.cancelWinnerIds.length > 0) {
-              await page.evaluate(() => {
-                const client = window.__supaClient;
-                if (!client) throw new Error('Supabase client unavailable for Undian RPC spy.');
-                const originalRpc = client.rpc.bind(client);
-                window.__AW_E2E_RPC_CALLS__ = [];
-                client.rpc = async (fn, args) => {
-                  window.__AW_E2E_RPC_CALLS__.push({ fn, args });
-                  if (fn === 'reset_pemenang') {
-                    return { data: { live_cleared: true, reversed_amount: 0 }, error: null };
-                  }
-                  return originalRpc(fn, args);
-                };
+              const rpcCalls = [];
+              await page.route('**/rest/v1/rpc/reset_pemenang', async route => {
+                const body = route.request().postData();
+                let args = null;
+                try { args = body ? JSON.parse(body) : null; } catch {}
+                rpcCalls.push({ fn: 'reset_pemenang', args });
+                await route.fulfill({
+                  status: 200,
+                  contentType: 'application/json',
+                  body: JSON.stringify({ live_cleared: true, reversed_amount: 0 })
+                });
               });
 
               const dialogs = dialog => dialog.accept();
@@ -384,18 +390,12 @@ jobs:
               await cancel.click();
               await page.waitForTimeout(500);
 
-              const cancelRpcAudit = await page.evaluate(() =>
-                Array.isArray(window.__AW_E2E_RPC_CALLS__) ?
-                  window.__AW_E2E_RPC_CALLS__.filter(x => x.fn === 'reset_pemenang') : []
-              );
-
+              const cancelRpcAudit = rpcCalls.filter(x => x.fn === 'reset_pemenang');
               if (!cancelRpcAudit.length) {
                 throw new Error(`${name}: Batalkan Pemenang did not route through reset_pemenang RPC.`);
               }
 
-              page.off('dialog', dialogs);
-
-              // Isolate Reset Pemenang from the async refresh triggered by cancel.
+              // Reload to isolate Reset Pemenang from cancel-triggered async refresh.
               await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
               await page.waitForFunction(() => {
                 const session = localStorage.getItem('arisan_session');
@@ -405,38 +405,22 @@ jobs:
               await clickNav(page, 'Undian');
               await page.waitForTimeout(700);
 
-              await page.evaluate(() => {
-                const client = window.__supaClient;
-                if (!client) throw new Error('Supabase client unavailable for Undian reset RPC spy.');
-                const originalRpc = client.rpc.bind(client);
-                window.__AW_E2E_RPC_CALLS__ = [];
-                client.rpc = async (fn, args) => {
-                  window.__AW_E2E_RPC_CALLS__.push({ fn, args });
-                  if (fn === 'reset_pemenang') {
-                    return { data: { live_cleared: true, reversed_amount: 0 }, error: null };
-                  }
-                  return originalRpc(fn, args);
-                };
-              });
-
-              const resetDialogs = dialog => dialog.accept();
-              page.on('dialog', resetDialogs);
-
               phase = 'undian-reset-spy';
+              const beforeResetRpcCount = rpcCalls.length;
               const reset = page.getByRole('button', { name: /^Reset Pemenang$/i }).first();
               await reset.click();
-              await page.waitForTimeout(700);
+              await page.waitForTimeout(900);
 
-              const resetRpcAudit = await page.evaluate(() =>
-                Array.isArray(window.__AW_E2E_RPC_CALLS__) ?
-                  window.__AW_E2E_RPC_CALLS__.filter(x => x.fn === 'reset_pemenang') : []
-              );
+              const resetRpcAudit = rpcCalls
+                .filter(x => x.fn === 'reset_pemenang')
+                .slice(beforeResetRpcCount);
 
               if (resetRpcAudit.length < undianAudit.cancelWinnerIds.length) {
                 throw new Error(`${name}: Reset Pemenang did not route all winners through reset_pemenang RPC: ${JSON.stringify(resetRpcAudit)}`);
               }
 
-              page.off('dialog', resetDialogs);
+              page.off('dialog', dialogs);
+              await page.unroute('**/rest/v1/rpc/reset_pemenang');
             }
 
             phase = 'laporan-ui';
@@ -610,6 +594,108 @@ jobs:
               }
             }
 
+            phase = 'finance-workspace';
+            const financeControllerReady = await page.evaluate(() =>
+              typeof window.__AW_FINANCE_NAV_OPEN__ === 'function'
+            );
+            if (!financeControllerReady) {
+              throw new Error(`${name}: Finance navigation controller is not registered.`);
+            }
+            await page.evaluate(() => window.__AW_FINANCE_NAV_OPEN__());
+            await page.waitForTimeout(900);
+
+            const financeLayout = await page.evaluate(() => {
+              const workspace = document.getElementById('aw-finance-workspace');
+              const content = document.getElementById('aw-fin-content');
+              const ledger = document.getElementById('aw-v22541-proof');
+              const tableWrap = ledger?.querySelector('.al-table-wrap');
+              const table = ledger?.querySelector('.al-table');
+              const head = ledger?.querySelector('.al-head');
+              const title = ledger?.querySelector('.al-title');
+              const body = ledger?.querySelector('.al-body');
+              const actionCards = ledger?.querySelectorAll('.al-actions .al-action') || [];
+              const summaryCards = ledger?.querySelectorAll('.al-summary .al-card') || [];
+
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
+              const measure = el => {
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return {
+                  width: r.width,
+                  height: r.height,
+                  clientWidth: el.clientWidth,
+                  clientHeight: el.clientHeight,
+                  scrollWidth: el.scrollWidth,
+                  scrollHeight: el.scrollHeight,
+                  overflowX: s.overflowX,
+                  overflowY: s.overflowY,
+                  maxHeight: parseFloat(s.maxHeight) || 0
+                };
+              };
+
+              return {
+                financeOpen: document.body.classList.contains('aw-finance-open'),
+                workspaceVisible: visible(workspace),
+                contentVisible: visible(content),
+                ledgerVisible: visible(ledger),
+                workspace: measure(workspace),
+                ledger: measure(ledger),
+                head: measure(head),
+                body: measure(body),
+                tableWrap: measure(tableWrap),
+                table: measure(table),
+                titleFontSize: title ? getComputedStyle(title).fontSize : null,
+                summaryCardCount: summaryCards.length,
+                actionCardCount: actionCards.length,
+                horizontalOverflow: document.documentElement.scrollWidth >
+                  document.documentElement.clientWidth + 1
+              };
+            });
+
+            if (!financeLayout.financeOpen ||
+                !financeLayout.workspaceVisible ||
+                !financeLayout.contentVisible ||
+                !financeLayout.ledgerVisible) {
+              throw new Error(`${name}: Finance Workspace/Ledger did not open correctly: ${JSON.stringify(financeLayout)}`);
+            }
+            if (financeLayout.summaryCardCount < 4 || financeLayout.actionCardCount < 4) {
+              throw new Error(`${name}: Finance Ledger lost summary/action cards: ${JSON.stringify(financeLayout)}`);
+            }
+            if (!financeLayout.tableWrap ||
+                financeLayout.tableWrap.clientWidth <= 0 ||
+                financeLayout.tableWrap.clientHeight <= 0 ||
+                !/auto|scroll/i.test(financeLayout.tableWrap.overflowX) ||
+                !/auto|scroll/i.test(financeLayout.tableWrap.overflowY)) {
+              throw new Error(`${name}: Finance Ledger table does not own an internal scroll container: ${JSON.stringify(financeLayout)}`);
+            }
+            if (name === 'mobile') {
+              if (financeLayout.workspace.width > 390 + 1 ||
+                  financeLayout.ledger.width > 390 + 1) {
+                throw new Error(`${name}: Finance Ledger is wider than the mobile viewport: ${JSON.stringify(financeLayout)}`);
+              }
+              if (!financeLayout.titleFontSize || parseFloat(financeLayout.titleFontSize) > 20) {
+                throw new Error(`${name}: Finance Ledger title is disproportionately large on mobile: ${JSON.stringify(financeLayout)}`);
+              }
+              if (financeLayout.tableWrap.scrollWidth <= financeLayout.tableWrap.clientWidth) {
+                throw new Error(`${name}: Finance Ledger history table lost horizontal internal scrolling on mobile: ${JSON.stringify(financeLayout)}`);
+              }
+            }
+            if (financeLayout.horizontalOverflow) {
+              throw new Error(`${name}: Finance Workspace caused page-level horizontal overflow: ${JSON.stringify(financeLayout)}`);
+            }
+
+            await page.evaluate(() => window.__AW_FINANCE_NAV_CLOSE__?.());
+            await page.waitForTimeout(300);
+            await clickNav(page, 'Laporan');
+            await page.waitForTimeout(500);
+
             phase = 'payment-form';
             await clickNav(page, 'Iuran');
             await page.waitForTimeout(700);
@@ -677,6 +763,7 @@ jobs:
               iuranLayout,
               undianAudit,
               laporanLayout,
+              financeLayout,
               tambahAnggotaFormVisible: memberFormVisible,
               catatIuranFormVisible: paymentFormVisible,
               horizontalOverflow: finalState.horizontalOverflow,

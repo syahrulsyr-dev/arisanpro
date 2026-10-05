@@ -5130,6 +5130,9 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
   async function show(){
     if(publicView()) return;
     const w=workspace(); if(!w) return;
+    // The Finance workspace is an explicit application mode. Lock host visibility
+    // at the point of transition so unrelated stylesheet ordering cannot hide it.
+    w.style.setProperty('display','block','important');
     document.body.classList.add('aw-finance-open');
     window.__AW_FINANCE_NAV_STATE__='open';
     mountModules();
@@ -5141,6 +5144,7 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
 
   function hide(){
     const w=workspace();
+    if(w) w.style.setProperty('display','none','important');
     document.body.classList.remove('aw-finance-open');
     window.__AW_FINANCE_NAV_STATE__='closed';
     window.__awBottomNavSetActive?.('dashboard');
@@ -7215,6 +7219,18 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .aw-
     overflow:auto!important;
   }
 }
+<style id="aw-finance-desktop-visibility-fix">
+/* Finance Workspace desktop owner — pair the mobile visibility rule.
+   The workspace is a fixed desktop surface and must become visible only while finance mode is open. */
+@media(min-width:768px){
+  body.aw-finance-open #root{
+    display:none!important;
+  }
+  body.aw-finance-open #aw-finance-workspace{
+    display:block!important;
+  }
+}
+</style>
 </style>
 </body>
 </html>
