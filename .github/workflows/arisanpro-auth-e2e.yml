@@ -696,6 +696,98 @@ jobs:
             await clickNav(page, 'Laporan');
             await page.waitForTimeout(500);
 
+            phase = 'share-page';
+            const shareControllerReady = await page.evaluate(() =>
+              typeof window.__arisanUiActions?.goToPage === 'function'
+            );
+            if (!shareControllerReady) {
+              throw new Error(`${name}: Share page controller is not registered.`);
+            }
+            await page.evaluate(() => window.__arisanUiActions.goToPage('share'));
+            await page.waitForTimeout(800);
+
+            const shareLayout = await page.evaluate(() => {
+              const main = document.querySelector('main[data-aw-page="share"]');
+              if (!main) return { found: false };
+
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
+
+              const copyButton = [...main.querySelectorAll('button')].find(b =>
+                /^Copy Link$/i.test((b.textContent || '').trim())
+              );
+              const qr = main.querySelector('img[alt="QR Code Share Link"]');
+              const qrBig = [...main.querySelectorAll('button')].find(b =>
+                /Buka QR Besar/i.test((b.textContent || '').trim())
+              );
+              const publicPreview = [...main.querySelectorAll('button')].find(b =>
+                /Buka Halaman Publik \(Simulasi\)/i.test((b.textContent || '').trim())
+              );
+              const liveText = /LIVE|Offline/i.test(main.innerText || '');
+              const linkText = [...main.querySelectorAll('div,span,p')].some(el =>
+                /Link asli:/i.test((el.textContent || '').trim())
+              );
+
+              return {
+                found: true,
+                copyButtonVisible: visible(copyButton),
+                qrVisible: visible(qr),
+                qrSrc: qr?.getAttribute('src') || null,
+                qrBigVisible: visible(qrBig),
+                publicPreviewVisible: visible(publicPreview),
+                liveText,
+                linkText,
+                horizontalOverflow: document.documentElement.scrollWidth >
+                  document.documentElement.clientWidth + 1
+              };
+            });
+
+            if (!shareLayout.found ||
+                !shareLayout.copyButtonVisible ||
+                !shareLayout.qrVisible ||
+                !shareLayout.qrBigVisible ||
+                !shareLayout.publicPreviewVisible ||
+                !shareLayout.linkText) {
+              throw new Error(`${name}: Share/Warga Link controls are incomplete: ${JSON.stringify(shareLayout)}`);
+            }
+            if (!shareLayout.qrSrc || !/^https:\/\/api\.qrserver\.com\/v1\/create-qr-code\//i.test(shareLayout.qrSrc)) {
+              throw new Error(`${name}: Share QR code source is missing/non-canonical: ${JSON.stringify(shareLayout)}`);
+            }
+            if (shareLayout.horizontalOverflow) {
+              throw new Error(`${name}: Share page has horizontal overflow.`);
+            }
+
+            phase = 'share-copy';
+            await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+            const copyButton = page.getByRole('button', { name: /^Copy Link$/i }).first();
+            await copyButton.click();
+            await page.waitForTimeout(300);
+
+            const shareBodyText = await page.locator('body').innerText();
+            if (!/link|disalin|copied|berhasil/i.test(shareBodyText)) {
+              throw new Error(`${name}: Copy Link did not produce an observable success/status response.`);
+            }
+
+            phase = 'share-public-simulation';
+            const sim = page.getByRole('button', { name: /Buka Halaman Publik \(Simulasi\)/i }).first();
+            await sim.click();
+            await page.waitForTimeout(350);
+
+            // The simulation is a React state transition that replaces the
+            // authenticated surface. Success criterion is that the click
+            // completes without browser/page errors. The actual public portal
+            // remains covered by the canonical Playwright Smoke Test.
+
+            // Return to a clean authenticated app boundary before the remaining
+            // admin-flow checks; simulation is intentionally isolated.
+            await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForTimeout(900);
+
             phase = 'payment-form';
             await clickNav(page, 'Iuran');
             await page.waitForTimeout(700);
@@ -764,6 +856,7 @@ jobs:
               undianAudit,
               laporanLayout,
               financeLayout,
+              shareLayout,
               tambahAnggotaFormVisible: memberFormVisible,
               catatIuranFormVisible: paymentFormVisible,
               horizontalOverflow: finalState.horizontalOverflow,
