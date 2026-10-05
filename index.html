@@ -5144,6 +5144,7 @@ function openForm(type){if(type==='expense'){return openExpenseForm();}if(type==
 
   function hide(){
     const w=workspace();
+    if(w) w.style.setProperty('display','none','important');
     document.body.classList.remove('aw-finance-open');
     window.__AW_FINANCE_NAV_STATE__='closed';
     window.__awBottomNavSetActive?.('dashboard');
