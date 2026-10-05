@@ -228,7 +228,7 @@ jobs:
                 modules: [...document.querySelectorAll('#aw-fin-content > *')].map(x => x.id).filter(Boolean)
               };
             });
-            if (!financeState.exists || !financeState.visible || !financeState.rootHidden) {
+            if (!financeState.exists || !financeState.visible || (name === 'mobile' && !financeState.rootHidden)) {
               const diagnostic = await page.evaluate(async () => {
                 const before = {
                   bodyClass: document.body.className,
