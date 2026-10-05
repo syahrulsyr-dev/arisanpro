@@ -7403,10 +7403,7 @@ body.aw-authenticated:not(.aw-public-live) .aw-ui-modal-contract>div{
     b.addEventListener('click',function(ev){
       ev.preventDefault();ev.stopPropagation();
       const open=()=>{
-        if(document.body.classList.contains('aw-finance-open')) return true;
-        if(typeof window.__AW_FINANCE_NAV_OPEN__==='function'){ window.__AW_FINANCE_NAV_OPEN__(); return true; }
-        if(typeof window.__AW_FINANCE_NAV_TOGGLE__==='function'){ window.__AW_FINANCE_NAV_TOGGLE__(); return true; }
-        return false;
+        return ensureFinanceOpen();
       };
       if(!open()){
         let tries=0;
@@ -7420,6 +7417,25 @@ body.aw-authenticated:not(.aw-public-live) .aw-ui-modal-contract>div{
     });
     return b;
   }
+  function ensureFinanceOpen(){
+    if(document.body.classList.contains('aw-finance-open')) return true;
+    try{
+      if(typeof window.__AW_FINANCE_NAV_OPEN__==='function') window.__AW_FINANCE_NAV_OPEN__();
+    }catch(err){ console.warn('UI hardening finance launcher:',err); }
+    if(document.body.classList.contains('aw-finance-open')) return true;
+    const w=document.getElementById('aw-finance-workspace');
+    if(!w) return false;
+    document.body.classList.add('aw-finance-open');
+    window.__AW_FINANCE_NAV_STATE__='open';
+    try{ window.__AW_V22541_MOUNT__?.(); }catch{}
+    try{ window.__awEnsureIncomePanel?.(); }catch{}
+    try{ window.__AW_V223_AUDIT_MOUNT__?.(); }catch{}
+    try{ window.__AW_V224_RECON_MOUNT__?.(); }catch{}
+    try{ window.__AW_FINANCE_NAV_OPEN__?.(); }catch{}
+    window.__awBottomNavSetActive?.('keuangan');
+    return true;
+  }
+
   function ensureFinanceControls(){
     const side=document.querySelector('aside nav');
     if(side && !side.querySelector('button[data-aw-finance-nav]')){
@@ -7447,11 +7463,7 @@ body.aw-authenticated:not(.aw-public-live) .aw-ui-modal-contract>div{
     if(key==='keuangan'){
       ev.preventDefault();
       ev.stopImmediatePropagation();
-      const open=()=>{
-        if(document.body.classList.contains('aw-finance-open')) return true;
-        if(typeof window.__AW_FINANCE_NAV_OPEN__==='function'){ window.__AW_FINANCE_NAV_OPEN__(); return true; }
-        return false;
-      };
+      const open=()=>ensureFinanceOpen();
       if(!open()){
         let tries=0;
         const retry=()=>{
