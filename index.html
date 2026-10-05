@@ -7281,7 +7281,221 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="iuran"] .aw-
   }
 }
 </style>
-</body>
+
+<script id="aw-ui-functional-hardening-v1">
+(function(){
+  'use strict';
+  if(window.__AW_UI_FUNCTIONAL_HARDENING_V1__) return;
+  window.__AW_UI_FUNCTIONAL_HARDENING_V1__=true;
+
+  const PAGES=['dashboard','anggota','iuran','undian','laporan','share','pengaturan'];
+  const LABELS={
+    dashboard:'Dashboard', anggota:'Anggota', iuran:'Iuran', undian:'Undian',
+    laporan:'Laporan', share:'Share Link', pengaturan:'Pengaturan'
+  };
+
+  const norm=s=>String(s||'').replace(/\s+/g,' ').trim();
+  const isPublic=()=>{try{return new URLSearchParams(location.search).get('view')==='public'}catch{return false}};
+  const root=()=>document.getElementById('root');
+  const main=()=>root()?.querySelector('main[data-aw-page]');
+  const current=()=>main()?.getAttribute('data-aw-page')||null;
+
+  function navButton(page){
+    const label=LABELS[page];
+    const all=[...document.querySelectorAll('aside nav button, .aw-v433-bottom-nav button, #root nav button')];
+    return all.find(b=>{
+      if(b.hasAttribute('data-aw-finance-nav')) return false;
+      const t=norm(b.textContent);
+      return t===label || t.indexOf(label+' ')===0;
+    })||null;
+  }
+
+  async function waitForPage(page, timeout=2500){
+    const start=Date.now();
+    while(Date.now()-start<timeout){
+      if(current()===page) return true;
+      await new Promise(r=>requestAnimationFrame(r));
+    }
+    return current()===page;
+  }
+
+  async function navigate(page){
+    if(isPublic() || !PAGES.includes(page)) return false;
+    try{
+      if(document.body.classList.contains('aw-finance-open')){
+        window.__AW_FINANCE_NAV_CLOSE__?.();
+      }
+      const b=navButton(page);
+      if(b){ b.click(); }
+      else if(window.__arisanModalSetters?.setPage){ window.__arisanModalSetters.setPage(page); }
+      else return false;
+
+      const ok=await waitForPage(page);
+      if(ok){
+        window.scrollTo({top:0,left:0,behavior:'auto'});
+        document.querySelector('.aw-v433-mobile-menu-backdrop')?.remove();
+        const drawer=[...document.querySelectorAll('.lg\\:hidden.fixed.inset-0')].find(x=>x.querySelector('nav'));
+        if(drawer && getComputedStyle(drawer).display!=='none'){
+          const close=[...drawer.querySelectorAll('button')].find(x=>/^×$|Tutup/i.test(norm(x.textContent)));
+          close?.click();
+        }
+      }
+      return ok;
+    }catch(err){
+      console.error('❌ AW UI navigate:',page,err);
+      return false;
+    }
+  }
+
+  async function openMember(){
+    if(!window.__arisanUiActions?.addMember) return false;
+    try{
+      window.__AW_V121_PENDING_MODAL__='member';
+      window.__arisanUiActions.addMember();
+      return await new Promise(resolve=>{
+        const start=Date.now();
+        const check=()=>{
+          const heading=[...document.querySelectorAll('h2,h3,h4')].find(h=>/^Tambah Anggota Baru$|^Edit Anggota$/i.test(norm(h.textContent)));
+          const overlay=heading?.closest('.fixed');
+          if(overlay && getComputedStyle(overlay).display!=='none'){resolve(true);return;}
+          if(Date.now()-start>2500){resolve(false);return;}
+          requestAnimationFrame(check);
+        };
+        check();
+      });
+    }catch(err){console.error('❌ AW UI member modal:',err);return false;}
+  }
+
+  async function openPayment(){
+    if(!window.__arisanUiActions?.openPayment) return false;
+    try{
+      window.__AW_V121_PENDING_MODAL__='payment';
+      window.__arisanUiActions.openPayment();
+      return await new Promise(resolve=>{
+        const start=Date.now();
+        const check=()=>{
+          const candidates=[...document.querySelectorAll('h2,h3,h4')];
+          const heading=candidates.find(h=>/Catat Pembayaran Iuran/i.test(norm(h.textContent)));
+          const overlay=heading?.closest('.fixed');
+          if(overlay && getComputedStyle(overlay).display!=='none'){resolve(true);return;}
+          if(Date.now()-start>2500){resolve(false);return;}
+          requestAnimationFrame(check);
+        };
+        check();
+      });
+    }catch(err){console.error('❌ AW UI payment modal:',err);return false;}
+  }
+
+  function bindNavigation(){
+    document.querySelectorAll('aside nav button, #root .lg\\:hidden nav button').forEach(b=>{
+      if(b.dataset.awUiHardeningBound) return;
+      const label=norm(b.textContent);
+      const page=Object.keys(LABELS).find(k=>label===LABELS[k]||label.indexOf(LABELS[k]+' ')===0);
+      if(!page) return;
+      b.dataset.awUiHardeningBound='1';
+      b.dataset.awUiPage=page;
+    });
+  }
+
+  function bindQuickActions(){
+    const candidates=[...document.querySelectorAll('#root button')];
+    candidates.forEach(b=>{
+      if(b.dataset.awUiQuickBound) return;
+      const t=norm(b.textContent);
+      let kind=null;
+      if(t==='Tambah Anggota') kind='member';
+      else if(t==='Catat Iuran') kind='payment';
+      else if(t==='Kocok Arisan') kind='draw';
+      else if(t==='Bagikan Link') kind='share';
+      if(!kind) return;
+      b.dataset.awUiQuickBound='1';
+      b.addEventListener('click',async e=>{
+        if(current()!=='dashboard') return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if(kind==='member'){
+          await navigate('anggota');
+          await openMember();
+        }else if(kind==='payment'){
+          await navigate('iuran');
+          await openPayment();
+        }else if(kind==='draw'){
+          await navigate('undian');
+        }else{
+          await navigate('share');
+        }
+      },true);
+    });
+  }
+
+  function bindFinance(){
+    const buttons=[...document.querySelectorAll('[data-aw-finance-nav]')];
+    buttons.forEach(b=>{
+      if(b.dataset.awUiFinanceBound) return;
+      b.dataset.awUiFinanceBound='1';
+      b.setAttribute('data-aw-ui-finance','1');
+      b.setAttribute('aria-label','Keuangan');
+    });
+    const workspace=document.getElementById('aw-finance-workspace');
+    if(workspace){
+      workspace.querySelectorAll('[data-fin-jump]').forEach(b=>{
+        b.setAttribute('data-aw-ui-finance-module','1');
+      });
+    }
+  }
+
+  function scan(){
+    if(isPublic()) return;
+    bindNavigation();
+    bindQuickActions();
+    bindFinance();
+  }
+
+  const observer=new MutationObserver(()=>{clearTimeout(scan._t);scan._t=setTimeout(scan,30)});
+  observer.observe(document.body,{childList:true,subtree:true});
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',scan,{once:true});
+  else scan();
+
+  window.__AW_UI_FUNCTIONAL_API__={
+    pages:PAGES.slice(),
+    current,
+    navigate,
+    openMember,
+    openPayment,
+    finance:{
+      open:()=>window.__AW_FINANCE_NAV_OPEN__?.(),
+      close:()=>window.__AW_FINANCE_NAV_CLOSE__?.(),
+      toggle:()=>window.__AW_FINANCE_NAV_TOGGLE__?.(),
+      isOpen:()=>document.body.classList.contains('aw-finance-open'),
+      modules:()=>[...document.querySelectorAll('#aw-finance-workspace [data-fin-jump]')].map(b=>b.dataset.finJump)
+    },
+    diagnostic(){
+      const visible=el=>{
+        if(!el)return false;
+        const r=el.getBoundingClientRect(),s=getComputedStyle(el);
+        return !el.hidden&&r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden;
+      };
+      const pageState={};
+      PAGES.forEach(p=>pageState[p]={
+        nav:!!navButton(p),
+        rendered:current()===p
+      });
+      const quick=[...document.querySelectorAll('#root button')].filter(b=>['Tambah Anggota','Catat Iuran','Kocok Arisan','Bagikan Link'].includes(norm(b.textContent)));
+      const finance=[...document.querySelectorAll('#aw-finance-workspace [data-fin-jump]')].map(b=>({key:b.dataset.finJump,visible:visible(b)}));
+      return {
+        ok:PAGES.every(p=>pageState[p].nav),
+        current:current(),
+        pages:pageState,
+        quickActions:quick.map(b=>({label:norm(b.textContent),visible:visible(b)})),
+        financeOpen:document.body.classList.contains('aw-finance-open'),
+        financeModules:finance,
+        horizontalOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1
+      };
+    }
+  };
+})();
+</script>
+\n</body>
 </html>
 
 
