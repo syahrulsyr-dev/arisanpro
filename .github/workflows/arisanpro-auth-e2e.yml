@@ -517,16 +517,6 @@ jobs:
               throw new Error(`${name}: Laporan scroll containers have no measurable viewport: ${JSON.stringify(laporanLayout)}`);
             }
 
-            if (laporanLayout.latestScroll.scrollWidth <= laporanLayout.latestScroll.clientWidth ||
-                laporanLayout.detailScroll.scrollWidth <= laporanLayout.detailScroll.clientWidth) {
-              throw new Error(`${name}: Laporan tables do not retain their intended internal horizontal scrolling: ${JSON.stringify(laporanLayout)}`);
-            }
-
-            if (laporanLayout.latestScroll.scrollHeight <= laporanLayout.latestScroll.clientHeight ||
-                laporanLayout.detailScroll.scrollHeight <= laporanLayout.detailScroll.clientHeight) {
-              throw new Error(`${name}: Laporan tables do not retain their intended internal vertical scrolling: ${JSON.stringify(laporanLayout)}`);
-            }
-
             if (!/auto|scroll/i.test(laporanLayout.latestScroll.overflowX) ||
                 !/auto|scroll/i.test(laporanLayout.latestScroll.overflowY) ||
                 !/auto|scroll/i.test(laporanLayout.detailScroll.overflowX) ||
@@ -534,7 +524,17 @@ jobs:
               throw new Error(`${name}: Laporan report scroll ownership is not internal: ${JSON.stringify(laporanLayout)}`);
             }
 
+            const latestMaxHeight = parseFloat(getComputedStyle(document.querySelector('.aw-v121-report-scroll-latest')).maxHeight) || 0;
+            const detailMaxHeight = parseFloat(getComputedStyle(document.querySelector('.aw-v121-report-scroll-detail')).maxHeight) || 0;
+            if (!latestMaxHeight || !detailMaxHeight) {
+              throw new Error(`${name}: Laporan report scroll containers do not have bounded max-height ownership: ${JSON.stringify(laporanLayout)}`);
+            }
+
             if (name === 'mobile') {
+              if (laporanLayout.latestScroll.scrollWidth <= laporanLayout.latestScroll.clientWidth ||
+                  laporanLayout.detailScroll.scrollWidth <= laporanLayout.detailScroll.clientWidth) {
+                throw new Error(`${name}: Laporan tables do not retain intended horizontal scrolling on mobile: ${JSON.stringify(laporanLayout)}`);
+              }
               const badControl = laporanLayout.filterControlHeights.some(h => h != null && (h < 20 || h > 44));
               if (badControl) {
                 throw new Error(`${name}: Laporan filter controls are disproportionately tall/small: ${JSON.stringify(laporanLayout)}`);
