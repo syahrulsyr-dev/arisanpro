@@ -410,6 +410,137 @@ jobs:
               page.off('dialog', dialogs);
             }
 
+            phase = 'laporan-ui';
+            await clickNav(page, 'Laporan');
+            await page.waitForTimeout(800);
+
+            const laporanLayout = await page.evaluate(() => {
+              const main = document.querySelector('main[data-aw-page="laporan"]');
+              if (!main) return { found: false };
+
+              const latest = main.querySelector('.aw-v121-report-latest');
+              const detail = main.querySelector('.aw-v121-report-detail');
+              const latestScroll = main.querySelector('.aw-v121-report-scroll-latest');
+              const detailScroll = main.querySelector('.aw-v121-report-scroll-detail');
+              const latestTable = latest?.querySelector('table');
+              const detailTable = detail?.querySelector('table');
+              const filter = latest?.querySelector('.aw-pr-filter');
+              const periodFilter = filter?.querySelector('#aw-pr-tx-period');
+              const fromFilter = filter?.querySelector('#aw-pr-tx-from');
+              const toFilter = filter?.querySelector('#aw-pr-tx-to');
+              const resetFilter = filter?.querySelector('#aw-pr-tx-clear');
+              const printButton = [...(detail?.querySelectorAll('button') || [])].find(b =>
+                /Cetak Laporan/i.test((b.textContent || '').trim())
+              );
+
+              const measure = el => {
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return {
+                  width: r.width,
+                  height: r.height,
+                  clientWidth: el.clientWidth,
+                  clientHeight: el.clientHeight,
+                  scrollWidth: el.scrollWidth,
+                  scrollHeight: el.scrollHeight,
+                  overflowX: s.overflowX,
+                  overflowY: s.overflowY
+                };
+              };
+
+              const controlHeight = el => {
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                return r.height;
+              };
+
+              return {
+                found: true,
+                latestFound: !!latest,
+                detailFound: !!detail,
+                latestScrollFound: !!latestScroll,
+                detailScrollFound: !!detailScroll,
+                latest: measure(latest),
+                detail: measure(detail),
+                latestScroll: measure(latestScroll),
+                detailScroll: measure(detailScroll),
+                latestTable: measure(latestTable),
+                detailTable: measure(detailTable),
+                latestFilterFound: !!filter,
+                periodFilterFound: !!periodFilter,
+                fromFilterFound: !!fromFilter,
+                toFilterFound: !!toFilter,
+                resetFilterFound: !!resetFilter,
+                filterControlHeights: [
+                  controlHeight(periodFilter),
+                  controlHeight(fromFilter),
+                  controlHeight(toFilter),
+                  controlHeight(resetFilter)
+                ],
+                printButtonVisible: !!printButton && (() => {
+                  const r = printButton.getBoundingClientRect();
+                  return r.width > 0 && r.height > 0 && getComputedStyle(printButton).display !== 'none';
+                })(),
+                headingTexts: [...main.querySelectorAll('h3,h4')].map(x => (x.textContent || '').trim())
+                  .filter(Boolean).filter(x => /Laporan Keuangan Profesional|Transaksi Kas Terbaru|Riwayat Transaksi Detail/i.test(x)),
+                horizontalOverflow: document.documentElement.scrollWidth >
+                  document.documentElement.clientWidth + 1
+              };
+            });
+
+            if (!laporanLayout.found ||
+                !laporanLayout.latestFound ||
+                !laporanLayout.detailFound ||
+                !laporanLayout.latestScrollFound ||
+                !laporanLayout.detailScrollFound) {
+              throw new Error(`${name}: Laporan report blocks/scroll containers are incomplete: ${JSON.stringify(laporanLayout)}`);
+            }
+            if (!laporanLayout.latestFilterFound ||
+                !laporanLayout.periodFilterFound ||
+                !laporanLayout.fromFilterFound ||
+                !laporanLayout.toFilterFound ||
+                !laporanLayout.resetFilterFound) {
+              throw new Error(`${name}: Laporan transaction filter controls are incomplete: ${JSON.stringify(laporanLayout)}`);
+            }
+            if (!laporanLayout.printButtonVisible) {
+              throw new Error(`${name}: Riwayat Transaksi Detail print action is missing.`);
+            }
+            if (laporanLayout.horizontalOverflow) {
+              throw new Error(`${name}: Laporan page has horizontal overflow outside intended table scrollers.`);
+            }
+
+            if (laporanLayout.latestScroll.clientWidth <= 0 ||
+                laporanLayout.detailScroll.clientWidth <= 0 ||
+                laporanLayout.latestScroll.clientHeight <= 0 ||
+                laporanLayout.detailScroll.clientHeight <= 0) {
+              throw new Error(`${name}: Laporan scroll containers have no measurable viewport: ${JSON.stringify(laporanLayout)}`);
+            }
+
+            if (laporanLayout.latestScroll.scrollWidth <= laporanLayout.latestScroll.clientWidth ||
+                laporanLayout.detailScroll.scrollWidth <= laporanLayout.detailScroll.clientWidth) {
+              throw new Error(`${name}: Laporan tables do not retain their intended internal horizontal scrolling: ${JSON.stringify(laporanLayout)}`);
+            }
+
+            if (laporanLayout.latestScroll.scrollHeight <= laporanLayout.latestScroll.clientHeight ||
+                laporanLayout.detailScroll.scrollHeight <= laporanLayout.detailScroll.clientHeight) {
+              throw new Error(`${name}: Laporan tables do not retain their intended internal vertical scrolling: ${JSON.stringify(laporanLayout)}`);
+            }
+
+            if (!/auto|scroll/i.test(laporanLayout.latestScroll.overflowX) ||
+                !/auto|scroll/i.test(laporanLayout.latestScroll.overflowY) ||
+                !/auto|scroll/i.test(laporanLayout.detailScroll.overflowX) ||
+                !/auto|scroll/i.test(laporanLayout.detailScroll.overflowY)) {
+              throw new Error(`${name}: Laporan report scroll ownership is not internal: ${JSON.stringify(laporanLayout)}`);
+            }
+
+            if (name === 'mobile') {
+              const badControl = laporanLayout.filterControlHeights.some(h => h != null && (h < 20 || h > 44));
+              if (badControl) {
+                throw new Error(`${name}: Laporan filter controls are disproportionately tall/small: ${JSON.stringify(laporanLayout)}`);
+              }
+            }
+
             phase = 'payment-form';
             await clickNav(page, 'Iuran');
             await page.waitForTimeout(700);
@@ -476,6 +607,7 @@ jobs:
               memberLayout,
               iuranLayout,
               undianAudit,
+              laporanLayout,
               tambahAnggotaFormVisible: memberFormVisible,
               catatIuranFormVisible: paymentFormVisible,
               horizontalOverflow: finalState.horizontalOverflow,
