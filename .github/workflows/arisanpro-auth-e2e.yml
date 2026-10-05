@@ -826,6 +826,14 @@ jobs:
               throw new Error(`${name}: Finance Workspace caused page-level horizontal overflow: ${JSON.stringify(financeLayout)}`);
             }
 
+            if (name === 'desktop') {
+              await page.screenshot({
+                path: 'test-results/postfix-desktop-finance-workspace.png',
+                fullPage: true,
+                animations: 'disabled'
+              });
+            }
+
             await page.evaluate(() => window.__AW_FINANCE_NAV_CLOSE__?.());
             await page.waitForTimeout(300);
             await clickNav(page, 'Laporan');
