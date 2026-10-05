@@ -50,76 +50,169 @@ let _checkLib = setInterval(()=>{
 }, 300);
 
 function initAuth(client){
-  // Restore session - JANGAN reload di sini, cegah kedip
-  client.auth.getSession().then(({data:{session}})=>{
-    if(session){
-      console.log('✅ Session aktif', session.user.email);
-      let role = session.user.email.includes('bendahara') ? 'bendahara' : 'admin';
-      let existing = localStorage.getItem('arisan_session');
-      if(!existing){
-        localStorage.setItem('arisan_session', JSON.stringify({username: session.user.email.split('@')[0], email: session.user.email, role: role, id: session.user.id}));
-        localStorage.setItem('arisan_supabase_session', JSON.stringify(session));
-        // Jika React sudah mount dan belum baca session, reload sekali saja
-        if(!sessionStorage.getItem('__supa_reloaded')){
-          sessionStorage.setItem('__supa_reloaded','1');
-          console.log('🔄 Session ada tapi arisan_session kosong -> reload sekali');
-          setTimeout(()=>location.reload(), 700);
-        }
+  let authGuardBusy=false;
+  let lastGuardAt=0;
+  let redirecting=false;
+  const publicMode=()=>new URLSearchParams(window.location.search).get('view')==='public';
+
+  const clearLocalAuth=(reason,reload=true)=>{
+    if(publicMode()||redirecting)return false;
+    redirecting=true;
+    localStorage.removeItem('arisan_session');
+    localStorage.removeItem('arisan_supabase_session');
+    sessionStorage.removeItem('__supa_reloaded');
+    window.__awSupabaseAuthReady=false;
+    window.__awSupabaseSession=null;
+    document.body.classList.remove('aw-authenticated');
+    try{window.__arisanAuthSetter?.(null)}catch{}
+    console.warn('🔒 AUTH GUARD → LOGIN',reason);
+    if(reload)window.location.replace(window.location.pathname);
+    return true;
+  };
+
+  const persistAuthSession=(session)=>{
+    if(!session?.user)return false;
+    const role=session.user.email?.includes('bendahara')?'bendahara':'admin';
+    const data={username:session.user.email?.split('@')[0]||'user',email:session.user.email||'',role,id:session.user.id};
+    localStorage.setItem('arisan_session',JSON.stringify(data));
+    localStorage.setItem('arisan_supabase_session',JSON.stringify(session));
+    window.__awSupabaseAuthReady=true;
+    window.__awSupabaseSession=session;
+    return true;
+  };
+
+  const isAuthFailure=(error)=>{
+    const status=Number(error?.status||error?.code||0);
+    const msg=String(error?.message||error||'').toLowerCase();
+    return status===401||status===403||
+      /invalid.*(token|jwt|session)|jwt.*expired|session.*(expired|invalid|not found)|refresh token.*(expired|invalid|reused)|user.*(not found|disabled)/i.test(msg);
+  };
+
+  const verifyLiveSession=async(reason)=>{
+    if(publicMode()||redirecting||authGuardBusy)return false;
+    authGuardBusy=true;
+    try{
+      const {data,error}=await client.auth.getSession();
+      if(error){
+        if(isAuthFailure(error))return clearLocalAuth(reason+': getSession invalid');
+        console.warn('⚠️ AUTH GUARD getSession tertunda:',error?.message||error);
+        return true;
       }
-    } else {
-      // Tidak ada session supabase, bersihkan flag reload
-      sessionStorage.removeItem('__supa_reloaded');
+      const session=data?.session||null;
+      if(!session)return clearLocalAuth(reason+': no active session',!!localStorage.getItem('arisan_session'));
+
+      const {data:userData,error:userError}=await client.auth.getUser();
+      if(userError){
+        if(isAuthFailure(userError))return clearLocalAuth(reason+': getUser invalid');
+        console.warn('⚠️ AUTH GUARD getUser tertunda:',userError?.message||userError);
+        return true;
+      }
+      if(!userData?.user)return clearLocalAuth(reason+': user missing');
+      persistAuthSession(session);
+      return true;
+    }catch(error){
+      if(isAuthFailure(error))return clearLocalAuth(reason+': auth failure');
+      console.warn('⚠️ AUTH GUARD verifikasi tertunda:',error?.message||error);
+      return true;
+    }finally{
+      authGuardBusy=false;
+      lastGuardAt=Date.now();
     }
+  };
+
+  client.auth.getSession().then(async({data:{session},error})=>{
+    if(error){
+      if(isAuthFailure(error))clearLocalAuth('initial getSession');
+      return;
+    }
+    if(!session){
+      clearLocalAuth('initial no session',!!localStorage.getItem('arisan_session'));
+      return;
+    }
+    persistAuthSession(session);
+    await verifyLiveSession('initial');
+    if(window.__awIncomeAuthReady&&window.__awSupabaseAuthReady&&!window.__awIncomeInitialLoadDone){
+      window.__awIncomeAuthReady().catch(err=>console.warn('Pemasukan Lain initial sync:',err));
+    }
+  }).catch(err=>{
+    if(isAuthFailure(err))clearLocalAuth('initial auth failure');
+    else console.warn('Auth session restore:',err);
   });
 
-  let __hasReloaded = sessionStorage.getItem('__supa_reloaded');
-  client.auth.onAuthStateChange((ev, sess)=>{
-    if(ev==='SIGNED_IN' && sess){
-      let role = sess.user.email.includes('bendahara') ? 'bendahara' : 'admin';
-      let newSess = JSON.stringify({username: sess.user.email.split('@')[0], email: sess.user.email, role: role, id: sess.user.id});
-      let oldSess = localStorage.getItem('arisan_session');
-      localStorage.setItem('arisan_session', newSess);
-      localStorage.setItem('arisan_supabase_session', JSON.stringify(sess));
-      console.log('🔐 SIGNED_IN', sess.user.email, 'old:', !!oldSess);
-      // Setelah login: tunggu fungsi pull tersedia, tarik server, baru masuk dashboard.
-      // Ini mencegah localStorage lama/dummy tampil lebih dulu.
-      if(!oldSess && !__hasReloaded){
+  let __hasReloaded=sessionStorage.getItem('__supa_reloaded');
+  client.auth.onAuthStateChange((ev,sess)=>{
+    console.log('🔐 AUTH',ev,sess?.user?.email||null);
+
+    if(ev==='INITIAL_SESSION'){
+      if(sess)persistAuthSession(sess);
+      else clearLocalAuth('INITIAL_SESSION without session',!!localStorage.getItem('arisan_session'));
+      return;
+    }
+
+    if(ev==='SIGNED_IN'&&sess){
+      const role=sess.user.email?.includes('bendahara')?'bendahara':'admin';
+      const newSess=JSON.stringify({username:sess.user.email.split('@')[0],email:sess.user.email,role,id:sess.user.id});
+      const oldSess=localStorage.getItem('arisan_session');
+      localStorage.setItem('arisan_session',newSess);
+      localStorage.setItem('arisan_supabase_session',JSON.stringify(sess));
+      window.__awSupabaseAuthReady=true;
+      window.__awSupabaseSession=sess;
+      console.log('🔐 SIGNED_IN',sess.user.email,'old:',!!oldSess);
+
+      if(!oldSess&&!__hasReloaded){
         sessionStorage.setItem('__supa_reloaded','1');
         let started=false;
         const enterAfterFreshPull=async()=>{
-          if(started) return;
+          if(started)return;
           if(window.__safePull){
             started=true;
             console.log('📥 Login sukses → pull Supabase sebelum reload UI');
-            try{ await window.__safePull(); }catch(err){ console.error('❌ Pull setelah login gagal',err); }
+            try{await window.__safePull()}catch(err){console.error('❌ Pull setelah login gagal',err)}
             console.log('🔄 Data server sudah diproses → masuk dashboard');
-            setTimeout(()=>location.reload(),150);
+            setTimeout(()=>window.location.reload(),150);
           }else{
-            // DB engine may still be initializing. Do not trap login in a polling loop.
-            // Reload shortly; the authenticated DB engine will perform its fresh pull.
-            setTimeout(()=>{if(!started){started=true;console.log('🔄 Login sukses → reload ke dashboard');location.reload()}},1200);
+            setTimeout(()=>{if(!started){started=true;console.log('🔄 Login sukses → reload ke dashboard');window.location.reload()}},1200);
           }
         };
         enterAfterFreshPull();
       }else{
-        // Session sudah ada: tetap sinkronkan server → local tanpa reload.
-        setTimeout(()=>{ if(window.__safePull) window.__safePull().catch(console.error); },150);
+        setTimeout(()=>{if(window.__safePull)window.__safePull().catch(console.error)},150);
       }
+      return;
     }
-    if(ev==='SIGNED_OUT'){
-      localStorage.removeItem('arisan_session');
-      localStorage.removeItem('arisan_supabase_session');
-      sessionStorage.removeItem('__supa_reloaded');
-      location.reload();
+
+    if(ev==='TOKEN_REFRESHED'&&sess){
+      persistAuthSession(sess);
+      return;
     }
+
+    if(ev==='USER_UPDATED'&&sess){
+      persistAuthSession(sess);
+      return;
+    }
+
+    if(ev==='SIGNED_OUT')clearLocalAuth('SIGNED_OUT');
   });
 
-  window.__supaClient = client;
-  // Sinyal global: Supabase client sudah tersedia dan session restore sudah selesai.
+  window.__awRequireAuthenticatedSession=()=>verifyLiveSession('manual');
+  window.__supaClient=client;
+
+  const recheckAuth=()=>{
+    if(document.visibilityState!=='visible'||redirecting)return;
+    if(Date.now()-lastGuardAt<5000)return;
+    verifyLiveSession('foreground');
+  };
+  window.addEventListener('focus',recheckAuth,{passive:true});
+  document.addEventListener('visibilitychange',recheckAuth,{passive:true});
+  setInterval(()=>{
+    if(document.visibilityState==='visible'&&Date.now()-lastGuardAt>=30000)verifyLiveSession('interval');
+  },15000);
+
   client.auth.getSession().then(({data:{session}})=>{
     window.__awSupabaseAuthReady=!!session;
     window.__awSupabaseSession=session||null;
-    if(session && window.__awIncomeAuthReady && !window.__awIncomeInitialLoadDone){
+    if(!session&&!publicMode()&&localStorage.getItem('arisan_session'))clearLocalAuth('secondary getSession');
+    if(session&&window.__awIncomeAuthReady&&!window.__awIncomeInitialLoadDone){
       window.__awIncomeAuthReady().catch(err=>console.warn('Pemasukan Lain initial sync:',err));
     }
   }).catch(err=>console.warn('Auth session restore:',err));
@@ -1893,6 +1986,7 @@ function ud(){let[e,n]=N.useState(null),[t,l]=N.useState({u:"",p:""}),[r,u]=N.us
   // inside the same browser tab, so a remote pull must update React state too.
   N.useEffect(()=>{
     window.__arisanReactSetters={members:C,periods:S,iurans:K,winners:E,settings:_};
+     window.__arisanAuthSetter=n;
     window.__arisanModalSetters={member:tl,payment:ll,setPaymentForm:nr,setMemberForm:Mn,setPage:Y};
     window.__arisanUiActions={
       addMember:()=>{
@@ -1948,6 +2042,7 @@ function ud(){let[e,n]=N.useState(null),[t,l]=N.useState({u:"",p:""}),[r,u]=N.us
     };
     return()=>{
       if(window.__arisanReactSetters?.members===C) delete window.__arisanReactSetters;
+      if(window.__arisanAuthSetter===n) delete window.__arisanAuthSetter;
       if(window.applyFreshDataToUI) delete window.applyFreshDataToUI;
     };
   },[]);
