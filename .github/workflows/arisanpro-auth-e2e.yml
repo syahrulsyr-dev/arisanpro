@@ -84,6 +84,7 @@ jobs:
               locale: 'id-ID'
             });
             const page = await context.newPage();
+            await page.emulateMedia({ reducedMotion: 'reduce' });
 
             let phase = 'login';
             page.on('pageerror', e => errors.push({
