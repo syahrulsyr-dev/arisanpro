@@ -697,7 +697,13 @@ jobs:
             await page.waitForTimeout(500);
 
             phase = 'share-page';
-            await clickNav(page, 'Share');
+            const shareControllerReady = await page.evaluate(() =>
+              typeof window.__arisanUiActions?.goToPage === 'function'
+            );
+            if (!shareControllerReady) {
+              throw new Error(`${name}: Share page controller is not registered.`);
+            }
+            await page.evaluate(() => window.__arisanUiActions.goToPage('share'));
             await page.waitForTimeout(800);
 
             const shareLayout = await page.evaluate(() => {
