@@ -945,7 +945,7 @@ jobs:
                 latestSelected: latest?.getAttribute('aria-selected') === 'true',
                 detailSelected: detail?.getAttribute('aria-selected') === 'true',
                 latestPanelVisible: visible(document.querySelector('.aw-v2-report-panel')),
-                detailSlotVisible: visible(document.querySelector('.aw-v2-report-detail-slot')),
+                detailSlotVisible: visible(document.querySelector('.aw-v2-report-detail-slot > .aw-v2-report-panel')),
                 bodyText: document.body?.innerText || ''
               };
             });
