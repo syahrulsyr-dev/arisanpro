@@ -1930,7 +1930,7 @@ const legacyHeading=[...document.querySelectorAll("#root h4,#root h3")].find(el=
 const sel=document.getElementById("aw-pr-tx-period"),from=document.getElementById("aw-pr-tx-from"),to=document.getElementById("aw-pr-tx-to"),clear=document.getElementById("aw-pr-tx-clear");const apply=()=>{const pv=sel?.value||"all",fv=from?.value||"",tv=to?.value||"";document.querySelectorAll("#aw-pr-tx tbody tr[data-date]").forEach(r=>{const d=r.dataset.date||"",hasPeriod=!!r.dataset.periodId,okP=pv==="all"||(hasPeriod&&r.dataset.periodId===pv),okF=!fv||d>=fv,okT=!tv||d<=tv;r.style.display=okP&&okF&&okT?"":"none"})};if(sel)sel.onchange=apply;if(from)from.onchange=apply;if(to)to.onchange=apply;if(clear)clear.onclick=()=>{if(sel)sel.value="all";if(from)from.value="";if(to)to.value="";apply()};apply()},[loading,extra,expense,err,reportTab]);
  return c("div",{children:[
    c("div",{dangerouslySetInnerHTML:{__html:html}}),
-   c("div",{className:"aw-v2-report-detail-slot"},c(TransactionDetailPanel,{iurans,members,periods,settings}))
+
  ]});
 }
 window.__AW_PERIOD_CANONICAL_REGISTRY__=window.__AW_PERIOD_CANONICAL_REGISTRY__||Object.create(null);
