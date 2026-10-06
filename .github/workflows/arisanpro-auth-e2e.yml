@@ -684,12 +684,11 @@ jobs:
                 !laporanLayout.latestScrollSeparateFromDetail) {
               throw new Error(`${name}: Laporan report blocks/scroll containers are incomplete or shared incorrectly: ${JSON.stringify(laporanLayout)}`);
             }
-            if (!laporanLayout.latestFilterFound ||
-                !laporanLayout.periodFilterFound ||
-                !laporanLayout.fromFilterFound ||
-                !laporanLayout.toFilterFound ||
-                !laporanLayout.resetFilterFound) {
-              throw new Error(`${name}: Laporan transaction filter controls are incomplete: ${JSON.stringify(laporanLayout)}`);
+            if (laporanLayout.periodFilterFound ||
+                laporanLayout.fromFilterFound ||
+                laporanLayout.toFilterFound ||
+                laporanLayout.resetFilterFound) {
+              throw new Error(`${name}: Laporan latest-transaction tab still exposes legacy filter controls: ${JSON.stringify(laporanLayout)}`);
             }
             if (laporanLayout.horizontalOverflow) {
               throw new Error(`${name}: Laporan page has horizontal overflow outside intended table scrollers.`);
