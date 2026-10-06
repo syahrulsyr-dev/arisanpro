@@ -979,6 +979,62 @@ jobs:
               throw new Error(`${name}: Laporan detail tab introduced horizontal overflow.`);
             }
 
+            const detailLayout = await page.evaluate(() => {
+              const main = document.querySelector('main[data-aw-page="laporan"]');
+              const panel = main?.querySelector('.aw-v2-report-detail-slot:not(.is-hidden) > .aw-v2-report-panel') || null;
+              const scroll = main?.querySelector('.aw-v2-report-detail-slot:not(.is-hidden) .aw-v2-detail-scroll') || null;
+              const table = main?.querySelector('.aw-v2-report-detail-slot:not(.is-hidden) table') || null;
+              const print = [...(main?.querySelectorAll('button') || [])].find(b => /Cetak Laporan/i.test((b.textContent || '').trim()));
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
+              const measure = el => {
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return {
+                  width:r.width,height:r.height,clientWidth:el.clientWidth,clientHeight:el.clientHeight,
+                  scrollWidth:el.scrollWidth,scrollHeight:el.scrollHeight,
+                  overflowX:s.overflowX,overflowY:s.overflowY,maxHeight:parseFloat(s.maxHeight)||0
+                };
+              };
+              return {
+                panelVisible:visible(panel),
+                scrollVisible:visible(scroll),
+                printVisible:visible(print),
+                panel:measure(panel),
+                scroll:measure(scroll),
+                table:measure(table),
+                horizontalOverflow:document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+              };
+            });
+
+            if (!detailLayout.panelVisible || !detailLayout.scrollVisible || !detailLayout.printVisible) {
+              throw new Error(`${name}: Laporan detail tab content/print action is not visible after activation: ${JSON.stringify(detailLayout)}`);
+            }
+            if (!detailLayout.scroll ||
+                detailLayout.scroll.clientWidth <= 0 ||
+                detailLayout.scroll.clientHeight <= 0) {
+              throw new Error(`${name}: Laporan detail scroll container has no measurable viewport: ${JSON.stringify(detailLayout)}`);
+            }
+            if (!/auto|scroll/i.test(detailLayout.scroll.overflowX) ||
+                !/auto|scroll/i.test(detailLayout.scroll.overflowY)) {
+              throw new Error(`${name}: Laporan detail scroll ownership is not internal: ${JSON.stringify(detailLayout)}`);
+            }
+            if (name === 'desktop' && !detailLayout.scroll.maxHeight) {
+              throw new Error(`${name}: Desktop Laporan detail panel needs a bounded internal scroll viewport.`);
+            }
+            if (name === 'mobile' && detailLayout.scroll.scrollWidth <= detailLayout.scroll.clientWidth) {
+              throw new Error(`${name}: Laporan detail table does not retain intended horizontal scrolling on mobile: ${JSON.stringify(detailLayout)}`);
+            }
+            if (detailLayout.horizontalOverflow) {
+              throw new Error(`${name}: Laporan detail tab introduced horizontal page overflow.`);
+            }
+
             await page.screenshot({
               path: `test-results/${name}-authenticated-laporan-detail.png`,
               fullPage: true, animations: 'disabled'
