@@ -688,7 +688,7 @@ jobs:
                 laporanLayout.fromFilterFound ||
                 laporanLayout.toFilterFound ||
                 laporanLayout.resetFilterFound) {
-              throw new Error(${name}: Laporan latest-transaction tab still exposes legacy filter controls: ${JSON.stringify(laporanLayout)});
+              throw new Error(`${name}: Laporan latest-transaction tab still exposes legacy filter controls: ${JSON.stringify(laporanLayout)}`);
             }
             if (laporanLayout.horizontalOverflow) {
               throw new Error(`${name}: Laporan page has horizontal overflow outside intended table scrollers.`);
