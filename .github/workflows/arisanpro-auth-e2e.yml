@@ -621,7 +621,7 @@ jobs:
                 if (table) {
                   for (let el = table.parentElement; el && el !== main; el = el.parentElement) {
                     const s = getComputedStyle(el);
-                    if (visible(el) && /auto|scroll/i.test(s.overflowX) && /auto|scroll/i.test(s.overflowY)) {
+                    if (/auto|scroll/i.test(s.overflowX) && /auto|scroll/i.test(s.overflowY)) {
                       scroll = el;
                       break;
                     }
