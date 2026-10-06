@@ -960,7 +960,7 @@ body:not(.aw-public-live) #root .aw-login-form .pt-4.border-t.border-slate-100.f
 .aw-v2-report-tab{flex:1;min-height:42px;padding:9px 14px;border:0;border-radius:10px;background:transparent;color:#64748b;font-size:12px;font-weight:700;cursor:pointer;transition:.15s}
 .aw-v2-report-tab.is-active{background:#fff;color:#0f172a;box-shadow:0 1px 4px rgba(15,23,42,.10)}
 .aw-v2-report-tab:focus-visible{outline:2px solid #94a3b8;outline-offset:1px}
-.aw-v2-report-detail-slot{margin-top:10px}
+.aw-v2-report-detail-slot{display:block!important;width:100%!important;margin-top:10px}
 .aw-v2-report-detail-slot>.aw-v2-report-panel{margin-top:0!important}
 .aw-v2-report-detail-slot .aw-v2-panel-head{min-height:56px}
 .aw-v2-report-detail-slot .aw-v2-panel-body{padding-top:12px}
@@ -1809,7 +1809,7 @@ function TransactionDetailPanel({iurans=[],members=[],periods=[],settings={}}){
  const money=v=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",minimumFractionDigits:0,maximumFractionDigits:0}).format(Number(v)||0);
  const rows=iurans.filter(o=>["lunas","cicilan"].includes(String(o.status||"").toLowerCase())).sort((a,b)=>(b.tglBayar||"").localeCompare(a.tglBayar||""));
  const filtered=rows.filter(o=>{const d=String(o.tglBayar||"").slice(0,10);return (periodId==="all"||String(o.periodId)===String(periodId))&&(!from||d>=from)&&(!to||d<=to)});
- return c("div",{className:"aw-pr-box aw-v2-report-panel",style:{marginTop:16},children:[
+ return c("div",{className:"aw-pr-box aw-v2-report-panel",style:{marginTop:16,display:"block",width:"100%",minHeight:120},children:[
   c("div",{className:"aw-v2-panel-head",children:[
    c("div",{children:[i("h4",{className:"font-bold",children:"Riwayat Transaksi Detail"}),i("div",{className:"aw-pr-sub",children:"Rincian pembayaran iuran yang tercatat."})]}),
    c("div",{className:"aw-v2-panel-actions",children:[
