@@ -1914,14 +1914,14 @@ function ProfessionalReport({iurans=[],members=[],periods=[],winners=[],settings
 <button id="aw-pr-report-tab-latest" class="aw-v2-report-tab ${reportTab==="latest"?"is-active":""}" role="tab" aria-selected="${reportTab==="latest"}" type="button">Transaksi Kas Terbaru</button>
 <button id="aw-pr-report-tab-detail" class="aw-v2-report-tab ${reportTab==="detail"?"is-active":""}" role="tab" aria-selected="${reportTab==="detail"}" type="button">Riwayat Transaksi Detail</button>
 </div>
-${reportTab==="latest"?`<div class="aw-pr-box aw-v2-report-panel aw-v2-report-panel-active" style="margin-top:10px">
+<div class="aw-pr-box aw-v2-report-panel aw-v2-report-panel-active ${reportTab==="detail"?"is-hidden":""}" style="margin-top:10px">
 <div class="aw-v2-panel-head"><div><h4>Transaksi Kas Terbaru</h4><div class="aw-pr-sub">Seluruh transaksi kas, tanpa batas jumlah.</div></div></div>
 <div class="aw-v2-panel-body"><div class="aw-pr-filter aw-v2-filter">
 <label for="aw-pr-tx-period">Periode</label><select id="aw-pr-tx-period" class="aw-pr-select"><option value="all">Semua periode</option>${pvals.map(k=>'<option value="'+esc(k.id)+'">'+esc(k.label)+'</option>').join("")}</select>
 <label for="aw-pr-tx-from">Dari</label><input id="aw-pr-tx-from" class="aw-pr-date" type="date">
 <label for="aw-pr-tx-to">Sampai</label><input id="aw-pr-tx-to" class="aw-pr-date" type="date">
 <button id="aw-pr-tx-clear" class="aw-pr-btn aw-v2-reset" type="button">Reset</button>
-</div><div class="aw-v2-table-scroll aw-v2-latest-scroll"><table id="aw-pr-tx" class="aw-pr-table"><thead><tr><th>Tanggal</th><th>Jenis</th><th>Keterangan</th><th style="text-align:right">Nominal</th></tr></thead><tbody>${txRows||'<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px">Belum ada transaksi.</td></tr>'}</tbody></table></div></div></div>`:""} N.useEffect(()=>{const b=document.getElementById("aw-pr-refresh");if(b){b.onclick=load;b.disabled=loading}const tabLatest=document.getElementById("aw-pr-report-tab-latest"),tabDetail=document.getElementById("aw-pr-report-tab-detail");
+</div><div class="aw-v2-table-scroll aw-v2-latest-scroll"><table id="aw-pr-tx" class="aw-pr-table"><thead><tr><th>Tanggal</th><th>Jenis</th><th>Keterangan</th><th style="text-align:right">Nominal</th></tr></thead><tbody>${txRows||'<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px">Belum ada transaksi.</td></tr>'}</tbody></table></div></div></div> N.useEffect(()=>{const b=document.getElementById("aw-pr-refresh");if(b){b.onclick=load;b.disabled=loading}const tabLatest=document.getElementById("aw-pr-report-tab-latest"),tabDetail=document.getElementById("aw-pr-report-tab-detail");
 if(tabLatest)tabLatest.onclick=()=>setReportTab("latest");
 if(tabDetail)tabDetail.onclick=()=>setReportTab("detail");
 const sel=document.getElementById("aw-pr-tx-period"),from=document.getElementById("aw-pr-tx-from"),to=document.getElementById("aw-pr-tx-to"),clear=document.getElementById("aw-pr-tx-clear");const apply=()=>{const pv=sel?.value||"all",fv=from?.value||"",tv=to?.value||"";document.querySelectorAll("#aw-pr-tx tbody tr[data-date]").forEach(r=>{const d=r.dataset.date||"",hasPeriod=!!r.dataset.periodId,okP=pv==="all"||(hasPeriod&&r.dataset.periodId===pv),okF=!fv||d>=fv,okT=!tv||d<=tv;r.style.display=okP&&okF&&okT?"":"none"})};if(sel)sel.onchange=apply;if(from)from.onchange=apply;if(to)to.onchange=apply;if(clear)clear.onclick=()=>{if(sel)sel.value="all";if(from)from.value="";if(to)to.value="";apply()};apply()},[loading,extra,expense,err,reportTab]);
@@ -7896,7 +7896,7 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="dashboard"] 
 }
 </style>
 <style id="aw-v2-report-panels">
-.aw-v2-report-panel{overflow:hidden!important;padding:16px!important}
+.aw-v2-report-panel{overflow:hidden!important;padding:16px!important}.aw-v2-report-panel.is-hidden{display:none!important;}
 .aw-v2-panel-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;min-width:0!important}
 .aw-v2-panel-head h4{margin:0!important;font-size:13px!important;line-height:1.25!important;font-weight:800!important;color:#0f172a!important}
 .aw-v2-panel-head .aw-pr-sub{margin-top:3px!important}
