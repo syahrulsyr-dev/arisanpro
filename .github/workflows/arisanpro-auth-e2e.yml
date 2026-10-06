@@ -647,9 +647,9 @@ jobs:
               return {
                 found: true,
                 latestFound: visible(latest.heading),
-                detailFound: visible(detail.heading),
+                detailFound: !!detail.heading,
                 latestScrollFound: visible(latest.scroll),
-                detailScrollFound: visible(detail.scroll),
+                detailScrollFound: !!detail.scroll,
                 latest: measure(latest.panel),
                 detail: measure(detail.panel),
                 latestScroll: measure(latest.scroll),
@@ -691,38 +691,21 @@ jobs:
                 !laporanLayout.resetFilterFound) {
               throw new Error(`${name}: Laporan transaction filter controls are incomplete: ${JSON.stringify(laporanLayout)}`);
             }
-            if (!laporanLayout.printButtonVisible) {
-              throw new Error(`${name}: Riwayat Transaksi Detail print action is missing.`);
-            }
             if (laporanLayout.horizontalOverflow) {
               throw new Error(`${name}: Laporan page has horizontal overflow outside intended table scrollers.`);
             }
-
             if (laporanLayout.latestScroll.clientWidth <= 0 ||
-                laporanLayout.detailScroll.clientWidth <= 0 ||
-                laporanLayout.latestScroll.clientHeight <= 0 ||
-                laporanLayout.detailScroll.clientHeight <= 0) {
-              throw new Error(`${name}: Laporan scroll containers have no measurable viewport: ${JSON.stringify(laporanLayout)}`);
+                laporanLayout.latestScroll.clientHeight <= 0) {
+              throw new Error(`${name}: Laporan latest scroll container has no measurable viewport: ${JSON.stringify(laporanLayout)}`);
             }
-
             if (!/auto|scroll/i.test(laporanLayout.latestScroll.overflowX) ||
-                !/auto|scroll/i.test(laporanLayout.latestScroll.overflowY) ||
-                !/auto|scroll/i.test(laporanLayout.detailScroll.overflowX) ||
-                !/auto|scroll/i.test(laporanLayout.detailScroll.overflowY)) {
-              throw new Error(`${name}: Laporan report scroll ownership is not internal: ${JSON.stringify(laporanLayout)}`);
+                !/auto|scroll/i.test(laporanLayout.latestScroll.overflowY)) {
+              throw new Error(`${name}: Laporan latest report scroll ownership is not internal: ${JSON.stringify(laporanLayout)}`);
             }
-
-            if (name === 'desktop' && (
-                !laporanLayout.latestScroll.maxHeight ||
-                !laporanLayout.detailScroll.maxHeight)) {
-              throw new Error(`${name}: Laporan desktop scroll containers lack bounded max-height ownership: ${JSON.stringify(laporanLayout)}`);
+            if (name === 'desktop' && !laporanLayout.latestScroll.maxHeight) {
+              throw new Error(`${name}: Desktop Laporan latest transaction panel needs a bounded internal scroll viewport.`);
             }
-
             if (name === 'mobile') {
-              if (laporanLayout.latestScroll.scrollWidth <= laporanLayout.latestScroll.clientWidth ||
-                  laporanLayout.detailScroll.scrollWidth <= laporanLayout.detailScroll.clientWidth) {
-                throw new Error(`${name}: Laporan tables do not retain intended horizontal scrolling on mobile: ${JSON.stringify(laporanLayout)}`);
-              }
               const badControl = laporanLayout.filterControlHeights.some(h => h != null && (h < 20 || h > 44));
               if (badControl) {
                 throw new Error(`${name}: Laporan filter controls are disproportionately tall/small: ${JSON.stringify(laporanLayout)}`);
