@@ -965,7 +965,7 @@ jobs:
                 latestSelected: latest?.getAttribute('aria-selected') === 'true',
                 detailSelected: detail?.getAttribute('aria-selected') === 'true',
                 latestPanelVisible: visible(document.querySelector('.aw-v2-report-panel')),
-                detailSlotVisible: visible(document.querySelector('.aw-v2-report-detail-slot')),
+                detailSlotVisible: visible([...document.querySelectorAll("#root h4,#root h3")].find(el => /^Riwayat Transaksi Detail$/i.test((el.textContent||"").trim()))?.closest(".aw-pr-box")),
                 horizontalOverflow: document.documentElement.scrollWidth >
                   document.documentElement.clientWidth + 1
               };
