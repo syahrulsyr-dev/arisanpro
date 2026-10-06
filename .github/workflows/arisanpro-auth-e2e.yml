@@ -981,9 +981,12 @@ jobs:
 
             const detailLayout = await page.evaluate(() => {
               const main = document.querySelector('main[data-aw-page="laporan"]');
-              const panel = main?.querySelector('.aw-v2-report-detail-slot:not(.is-hidden) > .aw-v2-report-panel') || null;
-              const scroll = main?.querySelector('.aw-v2-report-detail-slot:not(.is-hidden) .aw-v2-detail-scroll') || null;
-              const table = main?.querySelector('.aw-v2-report-detail-slot:not(.is-hidden) table') || null;
+              const heading = [...(main?.querySelectorAll('h4,h3') || [])].find(el =>
+                /^Riwayat Transaksi Detail$/i.test((el.textContent || '').trim())
+              );
+              const panel = heading?.closest('.aw-pr-box') || null;
+              const scroll = panel?.querySelector('.aw-v2-detail-scroll') || null;
+              const table = panel?.querySelector('table') || null;
               const print = [...(main?.querySelectorAll('button') || [])].find(b => /Cetak Laporan/i.test((b.textContent || '').trim()));
               const visible = el => {
                 if (!el) return false;
