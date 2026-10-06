@@ -923,6 +923,87 @@ jobs:
             await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
             await page.waitForTimeout(900);
 
+            phase = 'laporan-transaction-tabs';
+            await clickNav(page, 'Laporan');
+            await page.waitForTimeout(800);
+
+            const laporanTabs = await page.evaluate(() => {
+              const latest = document.getElementById('aw-pr-report-tab-latest');
+              const detail = document.getElementById('aw-pr-report-tab-detail');
+              const legacyToggle = document.getElementById('aw-pr-tx-toggle');
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
+              return {
+                latestVisible: visible(latest),
+                detailVisible: visible(detail),
+                legacyTogglePresent: !!legacyToggle,
+                latestSelected: latest?.getAttribute('aria-selected') === 'true',
+                detailSelected: detail?.getAttribute('aria-selected') === 'true',
+                latestPanelVisible: visible(document.querySelector('.aw-v2-report-panel')),
+                detailSlotVisible: visible(document.querySelector('.aw-v2-report-detail-slot')),
+                bodyText: document.body?.innerText || ''
+              };
+            });
+
+            if (!laporanTabs.latestVisible || !laporanTabs.detailVisible || laporanTabs.legacyTogglePresent) {
+              throw new Error(`${name}: Laporan transaction tab controls are incomplete: ${JSON.stringify(laporanTabs)}`);
+            }
+            if (!laporanTabs.latestSelected || laporanTabs.detailSelected) {
+              throw new Error(`${name}: Laporan latest tab is not selected by default: ${JSON.stringify(laporanTabs)}`);
+            }
+            if (!/Transaksi Kas Terbaru/i.test(laporanTabs.bodyText) || !/Riwayat Transaksi Detail/i.test(laporanTabs.bodyText)) {
+              throw new Error(`${name}: Laporan transaction tab labels are missing.`);
+            }
+
+            await page.screenshot({
+              path: `test-results/${name}-authenticated-laporan-latest.png`,
+              fullPage: true, animations: 'disabled'
+            });
+
+            await page.getByRole('tab', { name: /^Riwayat Transaksi Detail$/i }).click();
+            await page.waitForTimeout(500);
+
+            const detailState = await page.evaluate(() => {
+              const latest = document.getElementById('aw-pr-report-tab-latest');
+              const detail = document.getElementById('aw-pr-report-tab-detail');
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
+              return {
+                latestSelected: latest?.getAttribute('aria-selected') === 'true',
+                detailSelected: detail?.getAttribute('aria-selected') === 'true',
+                latestPanelVisible: visible(document.querySelector('.aw-v2-report-panel')),
+                detailSlotVisible: visible(document.querySelector('.aw-v2-report-detail-slot')),
+                horizontalOverflow: document.documentElement.scrollWidth >
+                  document.documentElement.clientWidth + 1
+              };
+            });
+
+            if (detailState.latestSelected || !detailState.detailSelected ||
+                detailState.latestPanelVisible || !detailState.detailSlotVisible) {
+              throw new Error(`${name}: Laporan detail tab transition failed: ${JSON.stringify(detailState)}`);
+            }
+            if (detailState.horizontalOverflow) {
+              throw new Error(`${name}: Laporan detail tab introduced horizontal overflow.`);
+            }
+
+            await page.screenshot({
+              path: `test-results/${name}-authenticated-laporan-detail.png`,
+              fullPage: true, animations: 'disabled'
+            });
+
+            await page.getByRole('tab', { name: /^Transaksi Kas Terbaru$/i }).click();
+            await page.waitForTimeout(300);
+
             phase = 'payment-form';
             await clickNav(page, 'Iuran');
             await page.waitForTimeout(700);
