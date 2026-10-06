@@ -621,7 +621,7 @@ jobs:
                 if (table) {
                   for (let el = table.parentElement; el && el !== main; el = el.parentElement) {
                     const s = getComputedStyle(el);
-                    if (visible(el) && /auto|scroll/i.test(s.overflowX) && /auto|scroll/i.test(s.overflowY)) {
+                    if (/auto|scroll/i.test(s.overflowX) && /auto|scroll/i.test(s.overflowY)) {
                       scroll = el;
                       break;
                     }
@@ -647,9 +647,9 @@ jobs:
               return {
                 found: true,
                 latestFound: visible(latest.heading),
-                detailFound: visible(detail.heading),
+                detailFound: !!detail.heading,
                 latestScrollFound: visible(latest.scroll),
-                detailScrollFound: visible(detail.scroll),
+                detailScrollFound: !!detail.scroll,
                 latest: measure(latest.panel),
                 detail: measure(detail.panel),
                 latestScroll: measure(latest.scroll),
@@ -691,38 +691,21 @@ jobs:
                 !laporanLayout.resetFilterFound) {
               throw new Error(`${name}: Laporan transaction filter controls are incomplete: ${JSON.stringify(laporanLayout)}`);
             }
-            if (!laporanLayout.printButtonVisible) {
-              throw new Error(`${name}: Riwayat Transaksi Detail print action is missing.`);
-            }
             if (laporanLayout.horizontalOverflow) {
               throw new Error(`${name}: Laporan page has horizontal overflow outside intended table scrollers.`);
             }
-
             if (laporanLayout.latestScroll.clientWidth <= 0 ||
-                laporanLayout.detailScroll.clientWidth <= 0 ||
-                laporanLayout.latestScroll.clientHeight <= 0 ||
-                laporanLayout.detailScroll.clientHeight <= 0) {
-              throw new Error(`${name}: Laporan scroll containers have no measurable viewport: ${JSON.stringify(laporanLayout)}`);
+                laporanLayout.latestScroll.clientHeight <= 0) {
+              throw new Error(`${name}: Laporan latest scroll container has no measurable viewport: ${JSON.stringify(laporanLayout)}`);
             }
-
             if (!/auto|scroll/i.test(laporanLayout.latestScroll.overflowX) ||
-                !/auto|scroll/i.test(laporanLayout.latestScroll.overflowY) ||
-                !/auto|scroll/i.test(laporanLayout.detailScroll.overflowX) ||
-                !/auto|scroll/i.test(laporanLayout.detailScroll.overflowY)) {
-              throw new Error(`${name}: Laporan report scroll ownership is not internal: ${JSON.stringify(laporanLayout)}`);
+                !/auto|scroll/i.test(laporanLayout.latestScroll.overflowY)) {
+              throw new Error(`${name}: Laporan latest report scroll ownership is not internal: ${JSON.stringify(laporanLayout)}`);
             }
-
-            if (name === 'desktop' && (
-                !laporanLayout.latestScroll.maxHeight ||
-                !laporanLayout.detailScroll.maxHeight)) {
-              throw new Error(`${name}: Laporan desktop scroll containers lack bounded max-height ownership: ${JSON.stringify(laporanLayout)}`);
+            if (name === 'desktop' && !laporanLayout.latestScroll.maxHeight) {
+              throw new Error(`${name}: Desktop Laporan latest transaction panel needs a bounded internal scroll viewport.`);
             }
-
             if (name === 'mobile') {
-              if (laporanLayout.latestScroll.scrollWidth <= laporanLayout.latestScroll.clientWidth ||
-                  laporanLayout.detailScroll.scrollWidth <= laporanLayout.detailScroll.clientWidth) {
-                throw new Error(`${name}: Laporan tables do not retain intended horizontal scrolling on mobile: ${JSON.stringify(laporanLayout)}`);
-              }
               const badControl = laporanLayout.filterControlHeights.some(h => h != null && (h < 20 || h > 44));
               if (badControl) {
                 throw new Error(`${name}: Laporan filter controls are disproportionately tall/small: ${JSON.stringify(laporanLayout)}`);
@@ -922,6 +905,146 @@ jobs:
             // admin-flow checks; simulation is intentionally isolated.
             await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
             await page.waitForTimeout(900);
+
+            phase = 'laporan-transaction-tabs';
+            await clickNav(page, 'Laporan');
+            await page.waitForTimeout(800);
+
+            const laporanTabs = await page.evaluate(() => {
+              const latest = document.getElementById('aw-pr-report-tab-latest');
+              const detail = document.getElementById('aw-pr-report-tab-detail');
+              const legacyToggle = document.getElementById('aw-pr-tx-toggle');
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
+              return {
+                latestVisible: visible(latest),
+                detailVisible: visible(detail),
+                legacyTogglePresent: !!legacyToggle,
+                latestSelected: latest?.getAttribute('aria-selected') === 'true',
+                detailSelected: detail?.getAttribute('aria-selected') === 'true',
+                latestPanelVisible: visible(document.querySelector('.aw-v2-report-panel')),
+                detailSlotVisible: visible(document.querySelector('.aw-v2-report-detail-slot > .aw-v2-report-panel')),
+                bodyText: document.body?.innerText || ''
+              };
+            });
+
+            if (!laporanTabs.latestVisible || !laporanTabs.detailVisible || laporanTabs.legacyTogglePresent) {
+              throw new Error(`${name}: Laporan transaction tab controls are incomplete: ${JSON.stringify(laporanTabs)}`);
+            }
+            if (!laporanTabs.latestSelected || laporanTabs.detailSelected) {
+              throw new Error(`${name}: Laporan latest tab is not selected by default: ${JSON.stringify(laporanTabs)}`);
+            }
+            if (!/Transaksi Kas Terbaru/i.test(laporanTabs.bodyText) || !/Riwayat Transaksi Detail/i.test(laporanTabs.bodyText)) {
+              throw new Error(`${name}: Laporan transaction tab labels are missing.`);
+            }
+
+            await page.screenshot({
+              path: `test-results/${name}-authenticated-laporan-latest.png`,
+              fullPage: true, animations: 'disabled'
+            });
+
+            await page.getByRole('tab', { name: /^Riwayat Transaksi Detail$/i }).click();
+            await page.waitForTimeout(500);
+
+            const detailState = await page.evaluate(() => {
+              const latest = document.getElementById('aw-pr-report-tab-latest');
+              const detail = document.getElementById('aw-pr-report-tab-detail');
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
+              return {
+                latestSelected: latest?.getAttribute('aria-selected') === 'true',
+                detailSelected: detail?.getAttribute('aria-selected') === 'true',
+                latestPanelVisible: visible(document.querySelector('.aw-v2-report-panel')),
+                detailSlotVisible: visible([...document.querySelectorAll("#root h4,#root h3")].find(el => /^Riwayat Transaksi Detail$/i.test((el.textContent||"").trim()))?.closest(".aw-pr-box")),
+                horizontalOverflow: document.documentElement.scrollWidth >
+                  document.documentElement.clientWidth + 1
+              };
+            });
+
+            if (detailState.latestSelected || !detailState.detailSelected ||
+                detailState.latestPanelVisible || !detailState.detailSlotVisible) {
+              throw new Error(`${name}: Laporan detail tab transition failed: ${JSON.stringify(detailState)}`);
+            }
+            if (detailState.horizontalOverflow) {
+              throw new Error(`${name}: Laporan detail tab introduced horizontal overflow.`);
+            }
+
+            const detailLayout = await page.evaluate(() => {
+              const main = document.querySelector('main[data-aw-page="laporan"]');
+              const heading = [...(main?.querySelectorAll('h4,h3') || [])].find(el =>
+                /^Riwayat Transaksi Detail$/i.test((el.textContent || '').trim())
+              );
+              const panel = heading?.closest('.aw-pr-box') || null;
+              const scroll = panel?.querySelector('.aw-v2-detail-scroll') || null;
+              const table = panel?.querySelector('table') || null;
+              const print = [...(main?.querySelectorAll('button') || [])].find(b => /Cetak Laporan/i.test((b.textContent || '').trim()));
+              const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && s.display !== 'none' &&
+                  s.visibility !== 'hidden' && !el.hidden;
+              };
+              const measure = el => {
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return {
+                  width:r.width,height:r.height,clientWidth:el.clientWidth,clientHeight:el.clientHeight,
+                  scrollWidth:el.scrollWidth,scrollHeight:el.scrollHeight,
+                  overflowX:s.overflowX,overflowY:s.overflowY,maxHeight:parseFloat(s.maxHeight)||0
+                };
+              };
+              return {
+                panelVisible:visible(panel),
+                scrollVisible:visible(scroll),
+                printVisible:visible(print),
+                panel:measure(panel),
+                scroll:measure(scroll),
+                table:measure(table),
+                horizontalOverflow:document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+              };
+            });
+
+            if (!detailLayout.panelVisible || !detailLayout.scrollVisible || !detailLayout.printVisible) {
+              throw new Error(`${name}: Laporan detail tab content/print action is not visible after activation: ${JSON.stringify(detailLayout)}`);
+            }
+            if (!detailLayout.scroll ||
+                detailLayout.scroll.clientWidth <= 0 ||
+                detailLayout.scroll.clientHeight <= 0) {
+              throw new Error(`${name}: Laporan detail scroll container has no measurable viewport: ${JSON.stringify(detailLayout)}`);
+            }
+            if (!/auto|scroll/i.test(detailLayout.scroll.overflowX) ||
+                !/auto|scroll/i.test(detailLayout.scroll.overflowY)) {
+              throw new Error(`${name}: Laporan detail scroll ownership is not internal: ${JSON.stringify(detailLayout)}`);
+            }
+            if (name === 'desktop' && !detailLayout.scroll.maxHeight) {
+              throw new Error(`${name}: Desktop Laporan detail panel needs a bounded internal scroll viewport.`);
+            }
+            if (name === 'mobile' && detailLayout.scroll.scrollWidth <= detailLayout.scroll.clientWidth) {
+              throw new Error(`${name}: Laporan detail table does not retain intended horizontal scrolling on mobile: ${JSON.stringify(detailLayout)}`);
+            }
+            if (detailLayout.horizontalOverflow) {
+              throw new Error(`${name}: Laporan detail tab introduced horizontal page overflow.`);
+            }
+
+            await page.screenshot({
+              path: `test-results/${name}-authenticated-laporan-detail.png`,
+              fullPage: true, animations: 'disabled'
+            });
+
+            await page.getByRole('tab', { name: /^Transaksi Kas Terbaru$/i }).click();
+            await page.waitForTimeout(300);
 
             phase = 'payment-form';
             await clickNav(page, 'Iuran');
