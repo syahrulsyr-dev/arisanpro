@@ -7112,14 +7112,28 @@ body.aw-authenticated:not(.aw-public-live) #root main[data-aw-page="anggota"] .g
 
   function setupReports(root){
     if(!root)return;
+    const v2Tabs=root.querySelector('.aw-v2-report-tabs');
+    if(v2Tabs){
+      // V2 owns the transaction-panel presentation. The legacy V121 controller
+      // must not remove the tabs or force both panels visible.
+      root.querySelector('.aw-v121-report-tabs')?.remove();
+      const legacyDetail=Array.from(root.querySelectorAll('.bg-white')).find(x=>{
+        const h=Array.from(x.querySelectorAll('h4,h3')).find(el=>/^Riwayat Transaksi Detail$/i.test(text(el)));
+        return !!h&&!x.closest('.aw-v2-report-detail-slot')&&!x.querySelector('.aw-v2-report-detail-slot');
+      });
+      if(legacyDetail){
+        legacyDetail.hidden=true;
+        legacyDetail.dataset.awV2LegacyHidden='1';
+        legacyDetail.style.setProperty('display','none','important');
+      }
+      return;
+    }
+
     const latest=Array.from(root.querySelectorAll('.aw-pr-box')).find(x=>/^Transaksi Kas Terbaru$/i.test(text(x.querySelector('h4'))));
     const dh=Array.from(root.querySelectorAll('h4,h3')).find(x=>/^Riwayat Transaksi Detail$/i.test(text(x)));
     const detail=dh?.closest('.bg-white');
 
-    // Both report tables must remain visible on mobile.
-    // Each table owns its own internal scroll container; do not collapse them into tabs.
-    root.querySelector('.aw-v121-report-tabs')?.remove();
-
+    // Legacy fallback only applies before the V2 transaction tabs mount.
     if(latest){
       latest.hidden=false;
       latest.classList.add('aw-v121-report-latest');
